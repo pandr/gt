@@ -133,3 +133,9 @@ Target: ~800–1000 LOC.
 Push / pull / fetch · branch create/switch/delete · stash apply/pop/drop · rebase · merge · conflict resolution UI · hunk-level staging (`git add -p`) · log browsing beyond last 6 · file-watcher live refresh · non-TUI subcommands (`gt status`, etc.) · search / filter · settings file · themes.
 
 Each of these gets added only when Peter actually reaches for it and finds it missing.
+
+## Ideas / todo
+
+Untracked folders. I need to be able to 'see' them and perhaps add them? I can stage them now, but its a bit yolo
+
+Push. I should be able to navigate to the top / headline where gt shows the branch stuff and do push.
