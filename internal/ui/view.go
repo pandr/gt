@@ -49,7 +49,11 @@ func (m Model) View() string {
 	if m.mode == modeCommit {
 		statusLines = 2
 	}
-	remaining := m.height - headerLines - rendered - statusLines
+	h := m.height
+	if h < 10 {
+		h = 24
+	}
+	remaining := h - headerLines - rendered - statusLines
 	for ; remaining > 0; remaining-- {
 		b.WriteString("\n")
 	}
@@ -95,7 +99,11 @@ func (m Model) visibleRange() (int, int) {
 	if m.mode == modeCommit {
 		statusLines = 2
 	}
-	available := m.height - headerLines - statusLines
+	h := m.height
+	if h < 10 {
+		h = 24 // sensible default before first WindowSizeMsg
+	}
+	available := h - headerLines - statusLines
 	if available < 1 {
 		available = 1
 	}
@@ -151,7 +159,11 @@ func (m Model) rowContent(r row) string {
 		if r.commit == nil {
 			return ""
 		}
-		return "  " + styleDim.Render(r.commit.SHA[:7]) + " " + r.commit.Title
+		sha := r.commit.SHA
+		if len(sha) > 7 {
+			sha = sha[:7]
+		}
+		return "  " + styleDim.Render(sha) + " " + r.commit.Title
 	}
 	return ""
 }

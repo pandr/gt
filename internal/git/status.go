@@ -2,6 +2,7 @@ package git
 
 import (
 	"bytes"
+	"fmt"
 	"os/exec"
 	"strings"
 )
@@ -50,42 +51,35 @@ func parseStatus(data []byte) *Status {
 		case strings.HasPrefix(line, "# branch.upstream "):
 			s.Upstream = strings.TrimPrefix(line, "# branch.upstream ")
 		case strings.HasPrefix(line, "# branch.ab "):
-			rest := strings.TrimPrefix(line, "# branch.ab ")
 			var a, b int
-			for _, part := range strings.Fields(rest) {
-				if strings.HasPrefix(part, "+") {
-					for _, r := range part[1:] {
-						a = a*10 + int(r-'0')
-					}
-					s.Ahead = a
-				} else if strings.HasPrefix(part, "-") {
-					for _, r := range part[1:] {
-						b = b*10 + int(r-'0')
-					}
-					s.Behind = b
-				}
-			}
+			fmt.Sscanf(strings.TrimPrefix(line, "# branch.ab "), "+%d -%d", &a, &b)
+			s.Ahead = a
+			s.Behind = b
 		case strings.HasPrefix(line, "1 ") || strings.HasPrefix(line, "2 "):
-			// "1 XY sub mH mI mW hH hI path" (ordinary changed)
-			// "2 XY sub mH mI mW hH hI X/Y path\0origPath" (rename/copy)
-			fields := strings.SplitN(line[2:], " ", 8)
-			if len(fields) < 8 {
+			// type 1: "1 XY sub mH mI mW hH hI path"            (9 space-fields)
+			// type 2: "2 XY sub mH mI mW hH hI score path\0orig" (score field extra)
+			fields := strings.Fields(line)
+			if len(fields) < 9 {
 				continue
 			}
-			xy := fields[0]
+			xy := fields[1]
+			if len(xy) < 2 {
+				continue
+			}
 			x := xy[0]
 			y := xy[1]
-			pathField := fields[7]
 			var path, origPath string
 			if line[0] == '2' {
-				// next NUL-separated token is the origPath
-				path = pathField
+				if len(fields) < 10 {
+					continue
+				}
+				path = fields[9]
 				if i+1 < len(entries) {
 					origPath = string(entries[i+1])
 					i++
 				}
 			} else {
-				path = pathField
+				path = fields[8]
 			}
 			fe := FileEntry{
 				Path:     path,
