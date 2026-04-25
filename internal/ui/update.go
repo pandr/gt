@@ -41,9 +41,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case execDoneMsg:
-		if msg.err != nil {
-			m.toast = msg.err.Error()
-		}
+		// Ignore non-zero exit from diff commands: git diff --no-index exits 1 when
+		// differences are found, and the pager may exit non-zero on user interrupt.
 		return m, nil
 
 	case editorDoneMsg:
@@ -126,7 +125,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.clampCursor()
 
 	case "d":
-		return m, m.doDiff(m.cursorRow(), m.tags)
+		return m, m.doDiff(m.cursorRow(), nil)
 
 	case "s":
 		return m.doStage()
