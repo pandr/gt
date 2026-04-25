@@ -9,6 +9,7 @@ const (
 	SectionUnstaged
 	SectionStaged
 	SectionLog
+	SectionWorkingTree
 )
 
 // DiffCmd returns an exec.Cmd for the given diff target.

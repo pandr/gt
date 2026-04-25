@@ -16,6 +16,17 @@ type refreshMsg struct {
 	err    error
 }
 
+type dirContentsMsg struct {
+	dirPath string
+	files   []git.FileEntry
+	err     error
+}
+
+type wtFilesMsg struct {
+	files []git.FileEntry
+	err   error
+}
+
 func (m Model) Init() tea.Cmd {
 	return refresh(m.repoRoot)
 }
@@ -37,6 +48,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.buildRows()
 			m.pruneTags()
 			m.clampCursor()
+		}
+		return m, nil
+
+	case dirContentsMsg:
+		if msg.err == nil {
+			m.dirContents[msg.dirPath] = msg.files
+			m.buildRows()
+		}
+		return m, nil
+
+	case wtFilesMsg:
+		if msg.err == nil {
+			m.wtFiles = msg.files
+			m.buildRows()
 		}
 		return m, nil
 
@@ -89,6 +114,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleTagPrefixKey(msg)
 	}
 
+	// Confirm mode (y/n for destructive actions)
+	if m.mode == modeConfirm {
+		return m.handleConfirmKey(msg)
+	}
+
 	// Normal mode
 	switch msg.String() {
 	case "q", "ctrl+c":
@@ -124,8 +154,20 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.cursor -= m.height / 2
 		m.clampCursor()
 
+	case "right":
+		return m.doExpand()
+
+	case "left":
+		return m.doCollapse()
+
 	case "d":
 		return m, m.doDiff(m.cursorRow(), nil)
+
+	case "x":
+		return m.doRmCached()
+
+	case "X":
+		return m.doRmFileConfirm()
 
 	case "s":
 		return m.doStage()
@@ -377,6 +419,126 @@ func (m Model) doTaggedUnstage() (Model, tea.Cmd) {
 		return m, nil
 	}
 	return m, refresh(m.repoRoot)
+}
+
+func (m Model) handleConfirmKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+	m.mode = modeNormal
+	m.confirmPrompt = ""
+	switch msg.String() {
+	case "y", "Y":
+		switch m.confirmKind {
+		case confirmRmFile:
+			if err := git.RmFile(m.repoRoot, m.confirmPath); err != nil {
+				m.toast = err.Error()
+				return m, nil
+			}
+			return m, refresh(m.repoRoot)
+		}
+	}
+	m.confirmKind = confirmNone
+	m.confirmPath = ""
+	return m, nil
+}
+
+func (m Model) doExpand() (Model, tea.Cmd) {
+	r := m.cursorRow()
+	switch r.kind {
+	case rowDir:
+		if m.openDirs[r.dirPath] {
+			return m, nil // already open
+		}
+		m.openDirs[r.dirPath] = true
+		if r.section == git.SectionUntracked {
+			return m, expandUntrackedDir(m.repoRoot, r.dirPath)
+		}
+		// Working tree dir: files already in wtFiles, just rebuild
+		m.buildRows()
+		return m, nil
+	case rowSectionHeader:
+		if r.section == git.SectionWorkingTree && !m.wtOpen {
+			m.wtOpen = true
+			if len(m.wtFiles) == 0 {
+				return m, fetchWTFiles(m.cwd)
+			}
+			m.buildRows()
+		}
+	}
+	return m, nil
+}
+
+func (m Model) doCollapse() (Model, tea.Cmd) {
+	r := m.cursorRow()
+	switch r.kind {
+	case rowDir:
+		m.openDirs[r.dirPath] = false
+		m.buildRows()
+	case rowFile:
+		// If this file is a child (depth>0), collapse its parent dir
+		if r.depth > 0 {
+			// find parent rowDir above cursor
+			for i := m.cursor - 1; i >= 0; i-- {
+				if m.rows[i].kind == rowDir {
+					m.openDirs[m.rows[i].dirPath] = false
+					m.cursor = i
+					m.buildRows()
+					break
+				}
+			}
+		}
+	case rowSectionHeader:
+		if r.section == git.SectionWorkingTree {
+			m.wtOpen = false
+			m.buildRows()
+		}
+	}
+	return m, nil
+}
+
+func (m Model) doRmCached() (Model, tea.Cmd) {
+	r := m.cursorRow()
+	if r.kind != rowFile || r.section != git.SectionWorkingTree {
+		return m, nil
+	}
+	if err := git.RmCached(m.repoRoot, r.file.Path); err != nil {
+		m.toast = err.Error()
+		return m, nil
+	}
+	// remove from wtFiles so the row disappears without a full refresh
+	newFiles := m.wtFiles[:0]
+	for _, f := range m.wtFiles {
+		if f.Path != r.file.Path {
+			newFiles = append(newFiles, f)
+		}
+	}
+	m.wtFiles = newFiles
+	m.buildRows()
+	return m, refresh(m.repoRoot)
+}
+
+func (m Model) doRmFileConfirm() (Model, tea.Cmd) {
+	r := m.cursorRow()
+	if r.kind != rowFile || r.section != git.SectionWorkingTree {
+		return m, nil
+	}
+	m.confirmKind = confirmRmFile
+	m.confirmPath = r.file.Path
+	m.confirmPrompt = fmt.Sprintf("Delete %s from disk? [y/N]", r.file.Path)
+	m.mode = modeConfirm
+	return m, nil
+}
+
+func expandUntrackedDir(repoRoot, dirPath string) tea.Cmd {
+	return func() tea.Msg {
+		files, err := git.ListUntrackedInDir(repoRoot, dirPath)
+		return dirContentsMsg{dirPath: dirPath, files: files, err: err}
+	}
+}
+
+func fetchWTFiles(cwd string) tea.Cmd {
+	return func() tea.Msg {
+		files, err := git.ListTrackedUnder(cwd)
+		return wtFilesMsg{files: files, err: err}
+	}
 }
 
 func refresh(repoRoot string) tea.Cmd {

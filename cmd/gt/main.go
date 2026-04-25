@@ -16,8 +16,12 @@ func main() {
 		fmt.Fprintln(os.Stderr, "gt: not inside a git repository")
 		os.Exit(1)
 	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		cwd = repoRoot
+	}
 
-	m := ui.NewModel(repoRoot)
+	m := ui.NewModel(repoRoot, cwd)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "gt: %v\n", err)

@@ -147,6 +147,7 @@ func (m Model) renderRow(r row, isCursor bool) string {
 }
 
 func (m Model) rowContent(r row) string {
+	indent := strings.Repeat("  ", r.depth)
 	switch r.kind {
 	case rowSectionHeader:
 		return m.sectionHeader(r.section)
@@ -154,7 +155,7 @@ func (m Model) rowContent(r row) string {
 		if r.file == nil {
 			return ""
 		}
-		return m.fileRow(r.file, r.section)
+		return indent + m.fileRow(r.file, r.section)
 	case rowCommit:
 		if r.commit == nil {
 			return ""
@@ -164,8 +165,26 @@ func (m Model) rowContent(r row) string {
 			sha = sha[:7]
 		}
 		return "  " + styleDim.Render(sha) + " " + r.commit.Title
+	case rowDir:
+		return m.dirRow(r)
 	}
 	return ""
+}
+
+func (m Model) dirRow(r row) string {
+	indent := strings.Repeat("  ", r.depth)
+	arrow := "▶"
+	if m.openDirs[r.dirPath] {
+		arrow = "▼"
+	}
+	name := r.dirPath
+	extra := ""
+	if !m.openDirs[r.dirPath] {
+		if children, ok := m.dirContents[r.dirPath]; ok {
+			extra = styleDim.Render(fmt.Sprintf("  (%d files)", len(children)))
+		}
+	}
+	return indent + "  " + styleDim.Render(arrow) + " " + styleAdd.Render(name) + extra
 }
 
 func (m Model) sectionHeader(s git.Section) string {
@@ -190,6 +209,15 @@ func (m Model) sectionHeader(s git.Section) string {
 	case git.SectionLog:
 		name = "Recent commits"
 		return styleHeader.Render(name)
+	case git.SectionWorkingTree:
+		if m.wtOpen {
+			return styleHeader.Render("Working tree  ./")
+		}
+		label := "Working tree  ./"
+		if len(m.wtFiles) > 0 {
+			label += fmt.Sprintf("  (%d files)", len(m.wtFiles))
+		}
+		return styleHeader.Render(label) + styleDim.Render("  → to expand")
 	}
 	return styleHeader.Render(fmt.Sprintf("%s (%d)", name, count))
 }
@@ -209,6 +237,8 @@ func (m Model) fileRow(f *git.FileEntry, section git.Section) string {
 	case git.SectionStaged:
 		x := rune(xy[0])
 		indicator, indicatorStyle = xyIndicator(x)
+	case git.SectionWorkingTree:
+		return "   " + styleDim.Render(f.Path)
 	}
 
 	return "  " + indicatorStyle.Render(indicator) + " " + f.Path
@@ -239,6 +269,9 @@ func (m Model) statusBar() string {
 	}
 	if m.mode == modeTagPrefix {
 		return styleStatusBar.Render(";_ — waiting for command (s=stage  u=unstage  d=diff)")
+	}
+	if m.mode == modeConfirm {
+		return styleToast.Render(m.confirmPrompt)
 	}
 
 	var parts []string

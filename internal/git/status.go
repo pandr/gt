@@ -8,12 +8,13 @@ import (
 )
 
 type FileEntry struct {
-	Path       string
-	OrigPath   string // non-empty on renames
-	XY         string // two-char porcelain status
-	InStaged   bool
-	InUnstaged bool
+	Path        string
+	OrigPath    string // non-empty on renames
+	XY          string // two-char porcelain status
+	InStaged    bool
+	InUnstaged  bool
 	InUntracked bool
+	IsDir       bool // untracked directory (path ends with /)
 }
 
 type Status struct {
@@ -100,8 +101,45 @@ func parseStatus(data []byte) *Status {
 				Path:        path,
 				XY:          "??",
 				InUntracked: true,
+				IsDir:       strings.HasSuffix(path, "/"),
 			})
 		}
 	}
 	return s
+}
+
+// ListUntrackedInDir returns untracked files inside an untracked directory.
+func ListUntrackedInDir(repoRoot, dirPath string) ([]FileEntry, error) {
+	cmd := exec.Command("git", "ls-files", "--others", "--exclude-standard", "--", dirPath)
+	cmd.Dir = repoRoot
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+	var files []FileEntry
+	for _, line := range strings.Split(strings.TrimRight(string(out), "\n"), "\n") {
+		if line == "" {
+			continue
+		}
+		files = append(files, FileEntry{Path: line, XY: "??", InUntracked: true})
+	}
+	return files, nil
+}
+
+// ListTrackedUnder lists all tracked files under the given directory (usually cwd).
+func ListTrackedUnder(dir string) ([]FileEntry, error) {
+	cmd := exec.Command("git", "ls-files")
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+	var files []FileEntry
+	for _, line := range strings.Split(strings.TrimRight(string(out), "\n"), "\n") {
+		if line == "" {
+			continue
+		}
+		files = append(files, FileEntry{Path: line, XY: ".."})
+	}
+	return files, nil
 }
