@@ -1,0 +1,10 @@
+# Binary
+gt
+
+# Go
+vendor/
+*.test
+*.out
+
+# OS
+.DS_Store
