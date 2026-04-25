@@ -18,21 +18,21 @@ func DiffCmd(repoRoot string, section Section, path string) *exec.Cmd {
 	switch section {
 	case SectionUntracked:
 		if path != "" {
-			args = []string{"diff", "--no-index", "/dev/null", path}
+			args = []string{"diff", "--color=always", "--no-index", "/dev/null", path}
 		} else {
 			return nil
 		}
 	case SectionUnstaged:
 		if path != "" {
-			args = []string{"diff", "--", path}
+			args = []string{"diff", "--color=always", "--", path}
 		} else {
-			args = []string{"diff"}
+			args = []string{"diff", "--color=always"}
 		}
 	case SectionStaged:
 		if path != "" {
-			args = []string{"diff", "--staged", "--", path}
+			args = []string{"diff", "--color=always", "--staged", "--", path}
 		} else {
-			args = []string{"diff", "--staged"}
+			args = []string{"diff", "--color=always", "--staged"}
 		}
 	default:
 		return nil
@@ -44,7 +44,7 @@ func DiffCmd(repoRoot string, section Section, path string) *exec.Cmd {
 
 // ShowCmd returns an exec.Cmd for `git show <sha>`.
 func ShowCmd(repoRoot, sha string) *exec.Cmd {
-	cmd := exec.Command("git", "show", sha)
+	cmd := exec.Command("git", "show", "--color=always", sha)
 	cmd.Dir = repoRoot
 	return cmd
 }
