@@ -7,6 +7,8 @@ A fast, keyboard-driven TUI for the git operations you actually do every day. In
 ## Features
 
 - See untracked, unstaged, staged files and recent commits on one screen
+- Expandable directory rows — `l` / `→` to drill in, `h` / `←` to collapse
+- Working tree browser: explore all tracked files under cwd, untrack or delete them
 - `d` on any row to diff it — file, whole section, or a commit
 - `s` / `u` to stage / unstage files or entire sections
 - Tag multiple files with `t`, then act on all of them with `;s`, `;u`, or `;d`
@@ -42,9 +44,13 @@ gt
 | `j` / `k` | down / up |
 | `g` / `G` | top / bottom |
 | `Ctrl-d` / `Ctrl-u` | half page down / up |
+| `l` / `→` | expand directory or section |
+| `h` / `←` | collapse directory or section |
 | `d` | diff at cursor (file, section, or commit) |
 | `s` | stage at cursor |
 | `u` | unstage at cursor |
+| `x` | untrack file, keep on disk (`git rm --cached`) |
+| `X` | untrack and delete file from disk (asks y/n) |
 | `t` | toggle tag on row |
 | `;s` / `;u` / `;d` | stage / unstage / diff all tagged |
 | `T` | clear all tags |
@@ -53,4 +59,4 @@ gt
 | `?` | help |
 | `q` / `Ctrl-c` | quit |
 
-Cursor targets are context-aware: pressing `d` on a section header diffs the whole section; pressing `s` on the Unstaged header stages everything unstaged.
+Cursor targets are context-aware: `d` on a section header diffs the whole section; `s` on the Unstaged header stages everything unstaged; `l` on an untracked directory expands it to show individual files.
