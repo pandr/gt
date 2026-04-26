@@ -31,7 +31,8 @@ const (
 	rowSectionHeader rowKind = iota
 	rowFile
 	rowCommit
-	rowDir // expandable directory node
+	rowDir       // expandable directory node
+	rowSeparator // blank line between groups, not navigable
 )
 
 // row is a single renderable + navigable item in the list.
@@ -128,13 +129,8 @@ func (m *Model) buildRows() {
 		}
 	}
 
-	// Recent commits section
-	m.rows = append(m.rows, row{kind: rowSectionHeader, section: git.SectionLog})
-	for i := range m.log {
-		m.rows = append(m.rows, row{kind: rowCommit, section: git.SectionLog, commit: &m.log[i]})
-	}
-
-	// Working tree section
+	// Working tree section (between git status and recent commits)
+	m.rows = append(m.rows, row{kind: rowSeparator})
 	m.rows = append(m.rows, row{kind: rowSectionHeader, section: git.SectionWorkingTree})
 	if m.wtOpen && len(m.wtFiles) > 0 {
 		for _, group := range groupByTopDir(m.wtFiles) {
@@ -149,6 +145,13 @@ func (m *Model) buildRows() {
 				m.rows = append(m.rows, row{kind: rowFile, section: git.SectionWorkingTree, file: &group.files[0]})
 			}
 		}
+	}
+
+	// Recent commits section
+	m.rows = append(m.rows, row{kind: rowSeparator})
+	m.rows = append(m.rows, row{kind: rowSectionHeader, section: git.SectionLog})
+	for i := range m.log {
+		m.rows = append(m.rows, row{kind: rowCommit, section: git.SectionLog, commit: &m.log[i]})
 	}
 }
 
@@ -183,6 +186,14 @@ func groupByTopDir(files []git.FileEntry) []wtGroup {
 		result = append(result, *byDir[k])
 	}
 	return result
+}
+
+// skipSeparators nudges the cursor past any rowSeparator rows in direction d (+1 or -1).
+func (m *Model) skipSeparators(d int) {
+	for m.cursor >= 0 && m.cursor < len(m.rows) && m.rows[m.cursor].kind == rowSeparator {
+		m.cursor += d
+	}
+	m.clampCursor()
 }
 
 // clampCursor ensures cursor is within [0, len(rows)-1].

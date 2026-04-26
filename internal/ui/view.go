@@ -167,6 +167,8 @@ func (m Model) rowContent(r row) string {
 		return "  " + styleDim.Render(sha) + " " + r.commit.Title
 	case rowDir:
 		return m.dirRow(r)
+	case rowSeparator:
+		return ""
 	}
 	return ""
 }

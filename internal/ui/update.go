@@ -133,31 +133,32 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "j", "down":
 		m.cursor++
-		m.clampCursor()
+		m.skipSeparators(+1)
 
 	case "k", "up":
 		m.cursor--
-		m.clampCursor()
+		m.skipSeparators(-1)
 
 	case "g":
 		m.cursor = 0
+		m.skipSeparators(+1)
 
 	case "G":
 		m.cursor = len(m.rows) - 1
-		m.clampCursor()
+		m.skipSeparators(-1)
 
 	case "ctrl+d":
 		m.cursor += m.height / 2
-		m.clampCursor()
+		m.skipSeparators(+1)
 
 	case "ctrl+u":
 		m.cursor -= m.height / 2
-		m.clampCursor()
+		m.skipSeparators(-1)
 
-	case "right":
+	case "right", "l":
 		return m.doExpand()
 
-	case "left":
+	case "left", "h":
 		return m.doCollapse()
 
 	case "d":
