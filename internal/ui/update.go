@@ -164,6 +164,9 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "d":
 		return m, m.doDiff(m.cursorRow(), nil)
 
+	case "r":
+		return m.doRestoreConfirm()
+
 	case "x":
 		return m.doRmCached()
 
@@ -276,6 +279,9 @@ func (m Model) doDiff(r row, tags map[string]bool) tea.Cmd {
 
 	switch r.kind {
 	case rowFile:
+		if r.section == git.SectionWorkingTree {
+			return m.diffWTFile(r.file.Path)
+		}
 		cmd := git.DiffCmd(m.repoRoot, r.section, r.file.Path)
 		return execDiff(cmd)
 	case rowSectionHeader:
@@ -309,6 +315,56 @@ func (m Model) taggedDiff(tags map[string]bool) tea.Cmd {
 		return nil
 	}
 	return tea.Sequence(cmds...)
+}
+
+func (m Model) diffWTFile(path string) tea.Cmd {
+	var cmds []tea.Cmd
+	if m.status != nil {
+		for _, f := range m.status.Unstaged {
+			if f.Path == path {
+				if cmd := git.DiffCmd(m.repoRoot, git.SectionUnstaged, path); cmd != nil {
+					cmds = append(cmds, execDiff(cmd))
+				}
+				break
+			}
+		}
+		for _, f := range m.status.Staged {
+			if f.Path == path {
+				if cmd := git.DiffCmd(m.repoRoot, git.SectionStaged, path); cmd != nil {
+					cmds = append(cmds, execDiff(cmd))
+				}
+				break
+			}
+		}
+	}
+	if len(cmds) == 0 {
+		return nil
+	}
+	return tea.Sequence(cmds...)
+}
+
+func (m Model) doRestoreConfirm() (Model, tea.Cmd) {
+	r := m.cursorRow()
+	if r.kind != rowFile {
+		return m, nil
+	}
+	var path string
+	switch r.section {
+	case git.SectionUnstaged:
+		path = r.file.Path
+	case git.SectionWorkingTree:
+		if sf := m.statusForPath(r.file.Path); sf != nil && sf.XY[1] != '.' {
+			path = r.file.Path
+		}
+	}
+	if path == "" {
+		return m, nil
+	}
+	m.confirmKind = confirmRestore
+	m.confirmPath = path
+	m.confirmPrompt = fmt.Sprintf("Discard changes to %s? [y/N]", path)
+	m.mode = modeConfirm
+	return m, nil
 }
 
 func (m Model) doStage() (Model, tea.Cmd) {
@@ -430,6 +486,12 @@ func (m Model) handleConfirmKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		switch m.confirmKind {
 		case confirmRmFile:
 			if err := git.RmFile(m.repoRoot, m.confirmPath); err != nil {
+				m.toast = err.Error()
+				return m, nil
+			}
+			return m, refresh(m.repoRoot)
+		case confirmRestore:
+			if err := git.Restore(m.repoRoot, m.confirmPath); err != nil {
 				m.toast = err.Error()
 				return m, nil
 			}

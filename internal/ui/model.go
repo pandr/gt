@@ -11,7 +11,8 @@ type confirmKind int
 
 const (
 	confirmNone confirmKind = iota
-	confirmRmFile // git rm (delete from disk)
+	confirmRmFile   // git rm (delete from disk)
+	confirmRestore  // git restore (discard unstaged changes)
 )
 
 type mode int
@@ -234,6 +235,42 @@ func (m *Model) pruneTags() {
 			delete(m.tags, k)
 		}
 	}
+}
+
+// statusForPath returns the first staged or unstaged FileEntry for path, or nil.
+func (m Model) statusForPath(path string) *git.FileEntry {
+	if m.status == nil {
+		return nil
+	}
+	for i := range m.status.Unstaged {
+		if m.status.Unstaged[i].Path == path {
+			return &m.status.Unstaged[i]
+		}
+	}
+	for i := range m.status.Staged {
+		if m.status.Staged[i].Path == path {
+			return &m.status.Staged[i]
+		}
+	}
+	return nil
+}
+
+// dirHasChanges reports whether any staged or unstaged file lives under dirPath.
+func (m Model) dirHasChanges(dirPath string) bool {
+	if m.status == nil {
+		return false
+	}
+	for _, f := range m.status.Unstaged {
+		if strings.HasPrefix(f.Path, dirPath) {
+			return true
+		}
+	}
+	for _, f := range m.status.Staged {
+		if strings.HasPrefix(f.Path, dirPath) {
+			return true
+		}
+	}
+	return false
 }
 
 // tagKey returns the string key for a row in the tags map.

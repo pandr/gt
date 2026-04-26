@@ -17,6 +17,7 @@ var keyBindings = []keyBinding{
 	{"d", "diff at cursor"},
 	{"s", "stage at cursor"},
 	{"u", "unstage at cursor"},
+	{"r", "restore (discard unstaged changes)"},
 	{"x", "untrack file (keep on disk)"},
 	{"X", "untrack + delete file (asks y/n)"},
 	{"t", "toggle tag"},

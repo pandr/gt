@@ -186,7 +186,18 @@ func (m Model) dirRow(r row) string {
 			extra = styleDim.Render(fmt.Sprintf("  (%d files)", len(children)))
 		}
 	}
-	return indent + "  " + styleDim.Render(arrow) + " " + styleAdd.Render(name) + extra
+	var nameStyle lipgloss.Style
+	switch r.section {
+	case git.SectionWorkingTree:
+		if m.dirHasChanges(r.dirPath) {
+			nameStyle = styleMod
+		} else {
+			nameStyle = styleDim
+		}
+	default:
+		nameStyle = styleAdd
+	}
+	return indent + "  " + styleDim.Render(arrow) + " " + nameStyle.Render(name) + extra
 }
 
 func (m Model) sectionHeader(s git.Section) string {
@@ -240,6 +251,17 @@ func (m Model) fileRow(f *git.FileEntry, section git.Section) string {
 		x := rune(xy[0])
 		indicator, indicatorStyle = xyIndicator(x)
 	case git.SectionWorkingTree:
+		if sf := m.statusForPath(f.Path); sf != nil {
+			y := rune(sf.XY[1])
+			x := rune(sf.XY[0])
+			if y != '.' {
+				ind, sty := xyIndicator(y)
+				return "  " + sty.Render(ind) + " " + f.Path
+			} else if x != '.' {
+				ind, sty := xyIndicator(x)
+				return "  " + sty.Render(ind) + " " + styleDim.Render(f.Path)
+			}
+		}
 		return "   " + styleDim.Render(f.Path)
 	}
 
@@ -284,7 +306,7 @@ func (m Model) statusBar() string {
 		if n > 0 {
 			parts = append(parts, styleTagged.Render(fmt.Sprintf("[%d tagged]", n)))
 		}
-		parts = append(parts, styleStatusBar.Render("c=commit  d=diff  s=stage  u=unstage  t=tag  ?=help  q=quit"))
+		parts = append(parts, styleStatusBar.Render("c=commit  d=diff  s=stage  u=unstage  r=restore  t=tag  ?=help  q=quit"))
 	}
 	return strings.Join(parts, "   ")
 }
