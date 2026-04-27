@@ -136,6 +136,8 @@ Each of these gets added only when Peter actually reaches for it and finds it mi
 
 ## Ideas / todo
 
-Untracked folders. I need to be able to 'see' them and perhaps add them? I can stage them now, but its a bit yolo
+We should 'advertise' something better than just "gt" to the terminal heading. Can we make it say gt 'current path>' instead?
+
+Also the hint bar at the bottom of the screen showing some of the available keys should not show anything you cannot do in that context (e.g. when I am browing the log of revisions). Generally its ok for it to change and be context aware and show the most likely / common actions for a given context.
 
 Push. I should be able to navigate to the top / headline where gt shows the branch stuff and do push.
