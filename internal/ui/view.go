@@ -306,9 +306,57 @@ func (m Model) statusBar() string {
 		if n > 0 {
 			parts = append(parts, styleTagged.Render(fmt.Sprintf("[%d tagged]", n)))
 		}
-		parts = append(parts, styleStatusBar.Render("c=commit  d=diff  s=stage  u=unstage  r=restore  t=tag  ?=help  q=quit"))
+		parts = append(parts, styleStatusBar.Render(m.contextHints()))
 	}
 	return strings.Join(parts, "   ")
+}
+
+func (m Model) contextHints() string {
+	var hints []string
+
+	if m.cursor >= 0 && m.cursor < len(m.rows) {
+		r := m.rows[m.cursor]
+		switch r.kind {
+		case rowCommit:
+			hints = []string{"d=diff", "t=tag", "R=refresh", "?=help", "q=quit"}
+		case rowSectionHeader:
+			switch r.section {
+			case git.SectionUntracked:
+				hints = []string{"s=stage", "t=tag", "c=commit", "?=help", "q=quit"}
+			case git.SectionUnstaged:
+				hints = []string{"d=diff", "s=stage", "r=restore", "t=tag", "c=commit", "?=help", "q=quit"}
+			case git.SectionStaged:
+				hints = []string{"d=diff", "u=unstage", "c=commit", "?=help", "q=quit"}
+			case git.SectionLog:
+				hints = []string{"R=refresh", "?=help", "q=quit"}
+			case git.SectionWorkingTree:
+				hints = []string{"l/h=expand", "R=refresh", "?=help", "q=quit"}
+			}
+		case rowFile:
+			switch r.section {
+			case git.SectionUntracked:
+				hints = []string{"s=stage", "x=untrack", "X=delete", "t=tag", "c=commit", "?=help", "q=quit"}
+			case git.SectionUnstaged:
+				hints = []string{"d=diff", "s=stage", "r=restore", "x=untrack", "t=tag", "c=commit", "?=help", "q=quit"}
+			case git.SectionStaged:
+				hints = []string{"d=diff", "u=unstage", "c=commit", "t=tag", "?=help", "q=quit"}
+			case git.SectionWorkingTree:
+				hints = []string{"d=diff", "t=tag", "R=refresh", "?=help", "q=quit"}
+			}
+		case rowDir:
+			switch r.section {
+			case git.SectionUntracked:
+				hints = []string{"s=stage", "l/h=expand", "?=help", "q=quit"}
+			case git.SectionWorkingTree:
+				hints = []string{"d=diff", "l/h=expand", "?=help", "q=quit"}
+			}
+		}
+	}
+
+	if len(hints) == 0 {
+		hints = []string{"c=commit", "d=diff", "s=stage", "u=unstage", "t=tag", "?=help", "q=quit"}
+	}
+	return strings.Join(hints, "  ")
 }
 
 func (m Model) helpView() string {

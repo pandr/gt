@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"os"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -48,8 +49,9 @@ type row struct {
 
 // Model is the bubbletea model.
 type Model struct {
-	repoRoot string
-	cwd      string
+	repoRoot    string
+	cwd         string
+	displayPath string // cwd with $HOME replaced by ~
 	status   *git.Status
 	log      []git.LogEntry
 
@@ -85,9 +87,15 @@ func NewModel(repoRoot, cwd string) Model {
 	ti.Placeholder = "Commit message (Enter=commit  Ctrl-g=editor  Esc=cancel)"
 	ti.CharLimit = 500
 
+	displayPath := cwd
+	if home, err := os.UserHomeDir(); err == nil && strings.HasPrefix(cwd, home) {
+		displayPath = "~" + cwd[len(home):]
+	}
+
 	return Model{
 		repoRoot:    repoRoot,
 		cwd:         cwd,
+		displayPath: displayPath,
 		tags:        make(map[string]bool),
 		openDirs:    make(map[string]bool),
 		dirContents: make(map[string][]git.FileEntry),

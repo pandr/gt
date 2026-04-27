@@ -28,7 +28,10 @@ type wtFilesMsg struct {
 }
 
 func (m Model) Init() tea.Cmd {
-	return refresh(m.repoRoot)
+	return tea.Batch(
+		tea.SetWindowTitle("gt "+m.displayPath),
+		refresh(m.repoRoot),
+	)
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
