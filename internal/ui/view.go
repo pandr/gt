@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/petera/gt/internal/git"
@@ -11,7 +12,7 @@ import (
 var (
 	styleBranch    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
 	styleHeader    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("3"))
-	styleCursor    = lipgloss.NewStyle().Background(lipgloss.Color("237")).Bold(true)
+	styleCursor    = lipgloss.NewStyle().Background(lipgloss.Color("241")).Bold(true)
 	styleTagged    = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))
 	styleStatusBar = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 	styleToast     = lipgloss.NewStyle().Foreground(lipgloss.Color("1")).Bold(true)
@@ -61,7 +62,83 @@ func (m Model) View() string {
 	// Status bar / commit input
 	b.WriteString(m.statusBar())
 
-	return b.String()
+	screen := b.String()
+	if m.keyHint != "" && m.width > 0 && m.height > 0 {
+		screen = m.overlayKeyHint(screen)
+	}
+	return screen
+}
+
+var styleKeyHint = lipgloss.NewStyle().
+	Bold(true).
+	Foreground(lipgloss.Color("0")).
+	Background(lipgloss.Color("11")).
+	Padding(2, 4).
+	Border(lipgloss.RoundedBorder()).
+	BorderForeground(lipgloss.Color("0")).
+	BorderBackground(lipgloss.Color("11"))
+
+func (m Model) overlayKeyHint(screen string) string {
+	box := styleKeyHint.Render(m.keyHint)
+	boxLines := strings.Split(box, "\n")
+	boxH := len(boxLines)
+	boxW := lipgloss.Width(box)
+
+	screenLines := strings.Split(screen, "\n")
+	n := len(screenLines)
+
+	startRow := n - 1 - boxH // leave status bar (last line) untouched
+	startCol := m.width - boxW - 2
+	if startRow < 0 {
+		startRow = 0
+	}
+	if startCol < 0 {
+		startCol = 0
+	}
+
+	for i, boxLine := range boxLines {
+		row := startRow + i
+		if row < 0 || row >= n-1 {
+			continue
+		}
+		screenLines[row] = spliceAt(screenLines[row], boxLine, startCol)
+	}
+	return strings.Join(screenLines, "\n")
+}
+
+// spliceAt overwrites the content of line starting at visual column col with overlay.
+// ANSI escape sequences in line are skipped when counting columns.
+func spliceAt(line, overlay string, col int) string {
+	vPos := 0
+	inEscape := false
+	byteIdx := len(line)
+
+	for i := 0; i < len(line); {
+		r, size := utf8.DecodeRuneInString(line[i:])
+		if inEscape {
+			if r == 'm' {
+				inEscape = false
+			}
+			i += size
+			continue
+		}
+		if r == '\x1b' {
+			inEscape = true
+			i += size
+			continue
+		}
+		if vPos >= col {
+			byteIdx = i
+			break
+		}
+		vPos++
+		i += size
+	}
+
+	if vPos < col {
+		return line + strings.Repeat(" ", col-vPos) + overlay
+	}
+	return line[:byteIdx] + "\033[0m" + overlay
 }
 
 func (m Model) branchHeader() string {

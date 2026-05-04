@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -32,6 +33,22 @@ type commitFilesMsg struct {
 	sha   string
 	files []string
 	err   error
+}
+
+type clearKeyHintMsg struct{ token int }
+
+// setKeyHint sets a brief key label and returns a timer cmd that clears it.
+// Only active when GT_DEMO_KEYS=1; no-ops otherwise.
+func setKeyHint(m Model, key string) (Model, tea.Cmd) {
+	if os.Getenv("GT_DEMO_KEYS") == "" {
+		return m, nil
+	}
+	m.keyHintToken++
+	m.keyHint = key
+	token := m.keyHintToken
+	return m, tea.Tick(700*time.Millisecond, func(time.Time) tea.Msg {
+		return clearKeyHintMsg{token: token}
+	})
 }
 
 func (m Model) Init() tea.Cmd {
@@ -101,6 +118,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		return m, refresh(m.repoRoot)
+
+	case clearKeyHintMsg:
+		if msg.token == m.keyHintToken {
+			m.keyHint = ""
+		}
+		return m, nil
 
 	case tea.KeyMsg:
 		return m.handleKey(msg)
@@ -173,34 +196,53 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.skipSeparators(-1)
 
 	case "right", "l":
-		return m.doExpand()
+		m, hintCmd := setKeyHint(m, "l")
+		m2, cmd := m.doExpand()
+		return m2, tea.Batch(hintCmd, cmd)
 
 	case "left", "h":
-		return m.doCollapse()
+		m, hintCmd := setKeyHint(m, "h")
+		m2, cmd := m.doCollapse()
+		return m2, tea.Batch(hintCmd, cmd)
 
 	case "d":
-		return m, m.doDiff(m.cursorRow(), nil)
+		m, hintCmd := setKeyHint(m, "d")
+		return m, tea.Batch(hintCmd, m.doDiff(m.cursorRow(), nil))
 
 	case "v":
-		return m.doViewFile()
+		m, hintCmd := setKeyHint(m, "v")
+		m2, cmd := m.doViewFile()
+		return m2, tea.Batch(hintCmd, cmd)
 
 	case "V":
-		return m.doEditFile()
+		m, hintCmd := setKeyHint(m, "V")
+		m2, cmd := m.doEditFile()
+		return m2, tea.Batch(hintCmd, cmd)
 
 	case "r":
-		return m.doRestoreConfirm()
+		m, hintCmd := setKeyHint(m, "r")
+		m2, cmd := m.doRestoreConfirm()
+		return m2, tea.Batch(hintCmd, cmd)
 
 	case "x":
-		return m.doRmCached()
+		m, hintCmd := setKeyHint(m, "x")
+		m2, cmd := m.doRmCached()
+		return m2, tea.Batch(hintCmd, cmd)
 
 	case "X":
-		return m.doRmFileConfirm()
+		m, hintCmd := setKeyHint(m, "X")
+		m2, cmd := m.doRmFileConfirm()
+		return m2, tea.Batch(hintCmd, cmd)
 
 	case "s":
-		return m.doStage()
+		m, hintCmd := setKeyHint(m, "s")
+		m2, cmd := m.doStage()
+		return m2, tea.Batch(hintCmd, cmd)
 
 	case "u":
-		return m.doUnstage()
+		m, hintCmd := setKeyHint(m, "u")
+		m2, cmd := m.doUnstage()
+		return m2, tea.Batch(hintCmd, cmd)
 
 	case "t":
 		r := m.cursorRow()
@@ -211,20 +253,27 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				delete(m.tags, k)
 			}
 		}
+		m, hintCmd := setKeyHint(m, "t")
+		return m, hintCmd
 
 	case ";":
 		if len(m.tags) > 0 {
 			m.mode = modeTagPrefix
+			m, hintCmd := setKeyHint(m, ";")
+			return m, hintCmd
 		}
 
 	case "T":
 		m.tags = make(map[string]bool)
+		m, hintCmd := setKeyHint(m, "T")
+		return m, hintCmd
 
 	case "c":
 		m.mode = modeCommit
 		m.commitInput.SetValue("")
 		m.commitInput.Focus()
-		return m, textinput.Blink
+		m, hintCmd := setKeyHint(m, "c")
+		return m, tea.Batch(hintCmd, textinput.Blink)
 	}
 
 	return m, nil
@@ -274,11 +323,16 @@ func (m Model) handleTagPrefixKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	m.mode = modeNormal
 	switch msg.String() {
 	case "d":
-		return m, m.doDiff(row{}, m.tags)
+		m, hintCmd := setKeyHint(m, ";d")
+		return m, tea.Batch(hintCmd, m.doDiff(row{}, m.tags))
 	case "s":
-		return m.doTaggedStage()
+		m, hintCmd := setKeyHint(m, ";s")
+		m2, cmd := m.doTaggedStage()
+		return m2, tea.Batch(hintCmd, cmd)
 	case "u":
-		return m.doTaggedUnstage()
+		m, hintCmd := setKeyHint(m, ";u")
+		m2, cmd := m.doTaggedUnstage()
+		return m2, tea.Batch(hintCmd, cmd)
 	case "esc":
 		return m, nil
 	}

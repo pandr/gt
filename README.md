@@ -1,8 +1,8 @@
 # gt
 
-A fast, keyboard-driven TUI for the git operations you actually do every day. Inspired by fond memories of [mutt](http://www.mutt.org/) — a single dense screen, vim-style navigation, and tag-and-act selection so you can stage, diff, and commit without touching the mouse.
+A fast, keyboard-driven TUI for the git operations you do every day. Inspired by fond memories of [mutt](http://www.mutt.org/) — a single dense screen, vim-style navigation, and tag-and-act selection so you can stage, diff, and commit without touching the mouse.
 
-![gt screenshot](docs/screenshot.png)
+![gt demo](docs/demo.gif)
 
 ## Features
 

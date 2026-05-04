@@ -83,6 +83,9 @@ type Model struct {
 
 	toast string // transient error message
 
+	keyHint      string // shown briefly when GT_DEMO_KEYS=1
+	keyHintToken int    // incremented on each setKeyHint call; stale timers are ignored
+
 	width  int
 	height int
 }
