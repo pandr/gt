@@ -33,6 +33,7 @@ const (
 	rowSectionHeader rowKind = iota
 	rowFile
 	rowCommit
+	rowCommitBody // a body line of the expanded commit message; dirPath holds the text
 	rowCommitFile // a file changed within an expanded commit; commit=parent, dirPath=file path
 	rowDir        // expandable directory node
 	rowSeparator  // blank line between groups, not navigable
@@ -70,7 +71,8 @@ type Model struct {
 	dirContents map[string][]git.FileEntry // dir path → listed files (populated on expand)
 
 	// expandable commit state
-	openCommits map[string][]git.FileEntry // sha → file list (populated on expand)
+	openCommits  map[string][]git.FileEntry // sha → file list (populated on expand)
+	commitBodies map[string][]string        // sha → extra body lines (populated on expand)
 
 	// working tree section
 	wtOpen  bool
@@ -111,7 +113,8 @@ func NewModel(repoRoot, cwd, version string) Model {
 		tags:        make(map[string]bool),
 		openDirs:    make(map[string]bool),
 		dirContents: make(map[string][]git.FileEntry),
-		openCommits: make(map[string][]git.FileEntry),
+		openCommits:  make(map[string][]git.FileEntry),
+		commitBodies: make(map[string][]string),
 		commitInput: ti,
 	}
 }
@@ -176,6 +179,14 @@ func (m *Model) buildRows() {
 		entry := &m.log[i]
 		m.rows = append(m.rows, row{kind: rowCommit, section: git.SectionLog, commit: entry})
 		if files, ok := m.openCommits[entry.SHA]; ok {
+			for _, line := range m.commitBodies[entry.SHA] {
+				m.rows = append(m.rows, row{
+					kind:    rowCommitBody,
+					section: git.SectionLog,
+					commit:  entry,
+					dirPath: line,
+				})
+			}
 			for _, f := range files {
 				m.rows = append(m.rows, row{
 					kind:        rowCommitFile,

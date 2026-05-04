@@ -32,6 +32,7 @@ type wtFilesMsg struct {
 type commitFilesMsg struct {
 	sha   string
 	files []git.FileEntry
+	body  []string
 	err   error
 }
 
@@ -95,6 +96,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case commitFilesMsg:
 		if msg.err == nil {
 			m.openCommits[msg.sha] = msg.files
+			m.commitBodies[msg.sha] = msg.body
 			m.buildRows()
 		}
 		return m, nil
@@ -742,7 +744,11 @@ func fetchWTFiles(cwd string) tea.Cmd {
 func fetchCommitFiles(repoRoot, sha string) tea.Cmd {
 	return func() tea.Msg {
 		files, err := git.GetCommitFiles(repoRoot, sha)
-		return commitFilesMsg{sha: sha, files: files, err: err}
+		if err != nil {
+			return commitFilesMsg{sha: sha, err: err}
+		}
+		body, _ := git.GetCommitBody(repoRoot, sha)
+		return commitFilesMsg{sha: sha, files: files, body: body}
 	}
 }
 

@@ -49,6 +49,28 @@ func GetCommitFiles(repoRoot, sha string) ([]FileEntry, error) {
 	return files, nil
 }
 
+func GetCommitBody(repoRoot, sha string) ([]string, error) {
+	cmd := exec.Command("git", "show", "-s", "--format=%B", sha)
+	cmd.Dir = repoRoot
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+	lines := strings.Split(strings.TrimRight(string(out), "\n"), "\n")
+	// skip title line and any immediately following blank line
+	if len(lines) > 0 {
+		lines = lines[1:]
+	}
+	for len(lines) > 0 && lines[0] == "" {
+		lines = lines[1:]
+	}
+	// strip trailing blank lines
+	for len(lines) > 0 && lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+	}
+	return lines, nil
+}
+
 func parseLog(out string) []LogEntry {
 	var entries []LogEntry
 	for _, line := range strings.Split(strings.TrimRight(out, "\n"), "\n") {

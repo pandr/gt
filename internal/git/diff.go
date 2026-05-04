@@ -50,9 +50,9 @@ func ShowCmd(repoRoot, sha string) *exec.Cmd {
 	return cmd
 }
 
-// ShowFileCmd returns an exec.Cmd for `git show <sha> -- <path>`.
+// ShowFileCmd returns an exec.Cmd for `git show <sha> -- <path>`, diff only.
 func ShowFileCmd(repoRoot, sha, path string) *exec.Cmd {
-	cmd := exec.Command("git", "show", "--color=always", sha, "--", path)
+	cmd := exec.Command("git", "show", "--color=always", "--format=", sha, "--", path)
 	cmd.Dir = repoRoot
 	return cmd
 }

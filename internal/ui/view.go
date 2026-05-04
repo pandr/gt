@@ -254,6 +254,9 @@ func (m Model) rowContent(r row) string {
 			arrow = styleDim.Render("▼")
 		}
 		return "  " + arrow + " " + styleDim.Render(sha) + " " + r.commit.Title
+	case rowCommitBody:
+		// 12-space indent aligns text under the title ("  ▼ sha7 ")
+		return "            " + styleDim.Render(r.dirPath)
 	case rowCommitFile:
 		if r.commit == nil {
 			return ""
