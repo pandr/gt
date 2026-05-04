@@ -2,7 +2,21 @@
 
 A fast, keyboard-driven TUI for the git operations you do every day. Inspired by fond memories of [mutt](http://www.mutt.org/) — a single dense screen, vim-style navigation, and tag-and-act selection so you can stage, diff, and commit without touching the mouse.
 
-![gt demo](docs/demo.gif)
+**Instant overview of your repo state**
+
+![overview](docs/demo-overview.gif)
+
+**Diff any changed or staged file — or inspect a commit from history**
+
+![diff](docs/demo-diff.gif)
+
+**Stage files and commit inline**
+
+![stage and commit](docs/demo-stage-commit.gif)
+
+**Tag files across sections and act on all of them at once**
+
+![tag and batch](docs/demo-tag-batch.gif)
 
 ## Features
 
