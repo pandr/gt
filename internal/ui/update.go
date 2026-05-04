@@ -31,7 +31,7 @@ type wtFilesMsg struct {
 
 type commitFilesMsg struct {
 	sha   string
-	files []string
+	files []git.FileEntry
 	err   error
 }
 

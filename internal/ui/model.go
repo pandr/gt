@@ -44,8 +44,11 @@ type row struct {
 	section git.Section
 	file    *git.FileEntry // nil for header/commit/dir rows
 	commit  *git.LogEntry  // nil for header/file/dir rows
-	dirPath string         // rowDir only
+	dirPath string         // rowDir / rowCommitFile path
 	depth   int            // indentation level (0 = top level)
+	// diff stats for rowCommitFile
+	statAdded   int
+	statDeleted int
 }
 
 // Model is the bubbletea model.
@@ -67,7 +70,7 @@ type Model struct {
 	dirContents map[string][]git.FileEntry // dir path → listed files (populated on expand)
 
 	// expandable commit state
-	openCommits map[string][]string // sha → file list (populated on expand)
+	openCommits map[string][]git.FileEntry // sha → file list (populated on expand)
 
 	// working tree section
 	wtOpen  bool
@@ -108,7 +111,7 @@ func NewModel(repoRoot, cwd, version string) Model {
 		tags:        make(map[string]bool),
 		openDirs:    make(map[string]bool),
 		dirContents: make(map[string][]git.FileEntry),
-		openCommits: make(map[string][]string),
+		openCommits: make(map[string][]git.FileEntry),
 		commitInput: ti,
 	}
 }
@@ -174,7 +177,15 @@ func (m *Model) buildRows() {
 		m.rows = append(m.rows, row{kind: rowCommit, section: git.SectionLog, commit: entry})
 		if files, ok := m.openCommits[entry.SHA]; ok {
 			for _, f := range files {
-				m.rows = append(m.rows, row{kind: rowCommitFile, section: git.SectionLog, commit: entry, dirPath: f, depth: 1})
+				m.rows = append(m.rows, row{
+					kind:        rowCommitFile,
+					section:     git.SectionLog,
+					commit:      entry,
+					dirPath:     f.Path,
+					depth:       1,
+					statAdded:   f.Added,
+					statDeleted: f.Deleted,
+				})
 			}
 		}
 	}

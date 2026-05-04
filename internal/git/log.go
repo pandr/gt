@@ -1,6 +1,7 @@
 package git
 
 import (
+	"fmt"
 	"os/exec"
 	"strings"
 )
@@ -24,18 +25,26 @@ func GetLog(repoRoot string) ([]LogEntry, error) {
 	return parseLog(string(out)), nil
 }
 
-func GetCommitFiles(repoRoot, sha string) ([]string, error) {
-	cmd := exec.Command("git", "show", "--name-only", "--format=", sha)
+func GetCommitFiles(repoRoot, sha string) ([]FileEntry, error) {
+	cmd := exec.Command("git", "show", "--numstat", "--format=", sha)
 	cmd.Dir = repoRoot
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, err
 	}
-	var files []string
+	var files []FileEntry
 	for _, line := range strings.Split(strings.TrimRight(string(out), "\n"), "\n") {
-		if line != "" {
-			files = append(files, line)
+		if line == "" {
+			continue
 		}
+		parts := strings.SplitN(line, "\t", 3)
+		if len(parts) < 3 {
+			continue
+		}
+		var added, deleted int
+		fmt.Sscan(parts[0], &added)
+		fmt.Sscan(parts[1], &deleted)
+		files = append(files, FileEntry{Path: parts[2], Added: added, Deleted: deleted})
 	}
 	return files, nil
 }

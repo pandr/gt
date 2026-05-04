@@ -11,6 +11,8 @@ type FileEntry struct {
 	Path        string
 	OrigPath    string // non-empty on renames
 	XY          string // two-char porcelain status
+	Added       int
+	Deleted     int
 	InStaged    bool
 	InUnstaged  bool
 	InUntracked bool
@@ -34,7 +36,50 @@ func GetStatus(repoRoot string) (*Status, error) {
 	if err != nil {
 		return nil, err
 	}
-	return parseStatus(out), nil
+	s := parseStatus(out)
+	if stats, err := fetchNumstat(repoRoot, false); err == nil {
+		for i := range s.Unstaged {
+			if v, ok := stats[s.Unstaged[i].Path]; ok {
+				s.Unstaged[i].Added, s.Unstaged[i].Deleted = v[0], v[1]
+			}
+		}
+	}
+	if stats, err := fetchNumstat(repoRoot, true); err == nil {
+		for i := range s.Staged {
+			if v, ok := stats[s.Staged[i].Path]; ok {
+				s.Staged[i].Added, s.Staged[i].Deleted = v[0], v[1]
+			}
+		}
+	}
+	return s, nil
+}
+
+func fetchNumstat(repoRoot string, cached bool) (map[string][2]int, error) {
+	args := []string{"diff", "--numstat"}
+	if cached {
+		args = append(args, "--cached")
+	}
+	cmd := exec.Command("git", args...)
+	cmd.Dir = repoRoot
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string][2]int)
+	for _, line := range strings.Split(strings.TrimRight(string(out), "\n"), "\n") {
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, "\t", 3)
+		if len(parts) < 3 {
+			continue
+		}
+		var added, deleted int
+		fmt.Sscan(parts[0], &added)
+		fmt.Sscan(parts[1], &deleted)
+		result[parts[2]] = [2]int{added, deleted}
+	}
+	return result, nil
 }
 
 func parseStatus(data []byte) *Status {

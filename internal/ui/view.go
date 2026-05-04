@@ -258,7 +258,7 @@ func (m Model) rowContent(r row) string {
 		if r.commit == nil {
 			return ""
 		}
-		return indent + "    " + styleDim.Render("·") + " " + r.dirPath
+		return indent + "    " + styleDim.Render("·") + " " + r.dirPath + formatStats(r.statAdded, r.statDeleted)
 	case rowDir:
 		return m.dirRow(r)
 	case rowSeparator:
@@ -359,7 +359,7 @@ func (m Model) fileRow(f *git.FileEntry, section git.Section) string {
 		return "   " + styleDim.Render(f.Path)
 	}
 
-	return "  " + indicatorStyle.Render(indicator) + " " + f.Path
+	return "  " + indicatorStyle.Render(indicator) + " " + f.Path + formatStats(f.Added, f.Deleted)
 }
 
 func xyIndicator(ch rune) (string, lipgloss.Style) {
@@ -376,6 +376,23 @@ func xyIndicator(ch rune) (string, lipgloss.Style) {
 		return "C", styleAdd
 	}
 	return string(ch), styleDim
+}
+
+func formatStats(added, deleted int) string {
+	if added == 0 && deleted == 0 {
+		return ""
+	}
+	s := "  "
+	if added > 0 {
+		s += styleAdd.Render(fmt.Sprintf("+%d", added))
+	}
+	if added > 0 && deleted > 0 {
+		s += styleDim.Render("/")
+	}
+	if deleted > 0 {
+		s += styleDel.Render(fmt.Sprintf("-%d", deleted))
+	}
+	return s
 }
 
 func (m Model) statusBar() string {
