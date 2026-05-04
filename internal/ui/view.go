@@ -249,11 +249,11 @@ func (m Model) rowContent(r row) string {
 		if len(sha) > 7 {
 			sha = sha[:7]
 		}
-		arrow := ""
+		arrow := styleDim.Render("▶")
 		if _, ok := m.openCommits[r.commit.SHA]; ok {
-			arrow = styleDim.Render("▼ ")
+			arrow = styleDim.Render("▼")
 		}
-		return "  " + styleDim.Render(sha) + " " + arrow + r.commit.Title
+		return "  " + arrow + " " + styleDim.Render(sha) + " " + r.commit.Title
 	case rowCommitFile:
 		if r.commit == nil {
 			return ""
