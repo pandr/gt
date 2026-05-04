@@ -87,6 +87,14 @@ func (m Model) branchHeader() string {
 		}
 		s += styleDim.Render("   "+info)
 	}
+	if m.version != "" && m.width > 0 {
+		ver := styleDim.Render(m.version)
+		used := visibleLen(s)
+		pad := m.width - used - visibleLen(m.version)
+		if pad > 1 {
+			s += strings.Repeat(" ", pad) + ver
+		}
+	}
 	return s
 }
 
@@ -164,7 +172,16 @@ func (m Model) rowContent(r row) string {
 		if len(sha) > 7 {
 			sha = sha[:7]
 		}
-		return "  " + styleDim.Render(sha) + " " + r.commit.Title
+		arrow := ""
+		if _, ok := m.openCommits[r.commit.SHA]; ok {
+			arrow = styleDim.Render("▼ ")
+		}
+		return "  " + styleDim.Render(sha) + " " + arrow + r.commit.Title
+	case rowCommitFile:
+		if r.commit == nil {
+			return ""
+		}
+		return indent + "    " + styleDim.Render("·") + " " + r.dirPath
 	case rowDir:
 		return m.dirRow(r)
 	case rowSeparator:
@@ -318,7 +335,15 @@ func (m Model) contextHints() string {
 		r := m.rows[m.cursor]
 		switch r.kind {
 		case rowCommit:
-			hints = []string{"d=diff", "t=tag", "R=refresh", "?=help", "q=quit"}
+			if r.commit != nil {
+				if _, ok := m.openCommits[r.commit.SHA]; ok {
+					hints = []string{"d=diff", "h=collapse", "t=tag", "?=help", "q=quit"}
+				} else {
+					hints = []string{"d=diff", "l=expand", "t=tag", "?=help", "q=quit"}
+				}
+			}
+		case rowCommitFile:
+			hints = []string{"d=diff", "h=collapse", "?=help", "q=quit"}
 		case rowSectionHeader:
 			switch r.section {
 			case git.SectionUntracked:

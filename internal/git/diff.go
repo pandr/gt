@@ -49,3 +49,10 @@ func ShowCmd(repoRoot, sha string) *exec.Cmd {
 	cmd.Dir = repoRoot
 	return cmd
 }
+
+// ShowFileCmd returns an exec.Cmd for `git show <sha> -- <path>`.
+func ShowFileCmd(repoRoot, sha, path string) *exec.Cmd {
+	cmd := exec.Command("git", "show", "--color=always", sha, "--", path)
+	cmd.Dir = repoRoot
+	return cmd
+}

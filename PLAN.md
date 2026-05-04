@@ -136,8 +136,7 @@ Each of these gets added only when Peter actually reaches for it and finds it mi
 
 ## Ideas / todo
 
-We should 'advertise' something better than just "gt" to the terminal heading. Can we make it say gt 'current path>' instead?
-
-Also the hint bar at the bottom of the screen showing some of the available keys should not show anything you cannot do in that context (e.g. when I am browing the log of revisions). Generally its ok for it to change and be context aware and show the most likely / common actions for a given context.
-
-Push. I should be able to navigate to the top / headline where gt shows the branch stuff and do push.
+- [x] Recent commits: `l` unfolds a commit to show changed files; `d` on a file runs `git show <sha> -- <file>`; `h` collapses.
+- [x] Recent commits scroll: log limit raised to 50; viewport already handles overflow.
+- [x] Build rev + date shown dim in top-right of branch header (`runtime/debug.ReadBuildInfo`).
+- [ ] Push. Navigate to the branch headline and push.

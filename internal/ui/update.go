@@ -27,6 +27,12 @@ type wtFilesMsg struct {
 	err   error
 }
 
+type commitFilesMsg struct {
+	sha   string
+	files []string
+	err   error
+}
+
 func (m Model) Init() tea.Cmd {
 	return tea.Batch(
 		tea.SetWindowTitle("gt "+m.displayPath),
@@ -64,6 +70,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case wtFilesMsg:
 		if msg.err == nil {
 			m.wtFiles = msg.files
+			m.buildRows()
+		}
+		return m, nil
+
+	case commitFilesMsg:
+		if msg.err == nil {
+			m.openCommits[msg.sha] = msg.files
 			m.buildRows()
 		}
 		return m, nil
@@ -293,6 +306,11 @@ func (m Model) doDiff(r row, tags map[string]bool) tea.Cmd {
 	case rowCommit:
 		cmd := git.ShowCmd(m.repoRoot, r.commit.SHA)
 		return execDiff(cmd)
+	case rowCommitFile:
+		if r.commit != nil {
+			cmd := git.ShowFileCmd(m.repoRoot, r.commit.SHA, r.dirPath)
+			return execDiff(cmd)
+		}
 	}
 	return nil
 }
@@ -528,6 +546,14 @@ func (m Model) doExpand() (Model, tea.Cmd) {
 			}
 			m.buildRows()
 		}
+	case rowCommit:
+		if r.commit == nil {
+			return m, nil
+		}
+		if _, ok := m.openCommits[r.commit.SHA]; ok {
+			return m, nil // already expanded
+		}
+		return m, fetchCommitFiles(m.repoRoot, r.commit.SHA)
 	}
 	return m, nil
 }
@@ -554,6 +580,25 @@ func (m Model) doCollapse() (Model, tea.Cmd) {
 	case rowSectionHeader:
 		if r.section == git.SectionWorkingTree {
 			m.wtOpen = false
+			m.buildRows()
+		}
+	case rowCommit:
+		if r.commit != nil {
+			if _, ok := m.openCommits[r.commit.SHA]; ok {
+				delete(m.openCommits, r.commit.SHA)
+				m.buildRows()
+			}
+		}
+	case rowCommitFile:
+		if r.commit != nil {
+			delete(m.openCommits, r.commit.SHA)
+			// move cursor up to the parent commit row
+			for i := m.cursor - 1; i >= 0; i-- {
+				if m.rows[i].kind == rowCommit && m.rows[i].commit != nil && m.rows[i].commit.SHA == r.commit.SHA {
+					m.cursor = i
+					break
+				}
+			}
 			m.buildRows()
 		}
 	}
@@ -604,6 +649,13 @@ func fetchWTFiles(cwd string) tea.Cmd {
 	return func() tea.Msg {
 		files, err := git.ListTrackedUnder(cwd)
 		return wtFilesMsg{files: files, err: err}
+	}
+}
+
+func fetchCommitFiles(repoRoot, sha string) tea.Cmd {
+	return func() tea.Msg {
+		files, err := git.GetCommitFiles(repoRoot, sha)
+		return commitFilesMsg{sha: sha, files: files, err: err}
 	}
 }
 

@@ -11,7 +11,7 @@ type LogEntry struct {
 }
 
 func GetLog(repoRoot string) ([]LogEntry, error) {
-	cmd := exec.Command("git", "log", "-n", "6", "--oneline", "--decorate=short")
+	cmd := exec.Command("git", "log", "-n", "50", "--oneline", "--decorate=short")
 	cmd.Dir = repoRoot
 	out, err := cmd.Output()
 	if err != nil {
@@ -22,6 +22,22 @@ func GetLog(repoRoot string) ([]LogEntry, error) {
 		return nil, err
 	}
 	return parseLog(string(out)), nil
+}
+
+func GetCommitFiles(repoRoot, sha string) ([]string, error) {
+	cmd := exec.Command("git", "show", "--name-only", "--format=", sha)
+	cmd.Dir = repoRoot
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+	var files []string
+	for _, line := range strings.Split(strings.TrimRight(string(out), "\n"), "\n") {
+		if line != "" {
+			files = append(files, line)
+		}
+	}
+	return files, nil
 }
 
 func parseLog(out string) []LogEntry {

@@ -33,8 +33,9 @@ const (
 	rowSectionHeader rowKind = iota
 	rowFile
 	rowCommit
-	rowDir       // expandable directory node
-	rowSeparator // blank line between groups, not navigable
+	rowCommitFile // a file changed within an expanded commit; commit=parent, dirPath=file path
+	rowDir        // expandable directory node
+	rowSeparator  // blank line between groups, not navigable
 )
 
 // row is a single renderable + navigable item in the list.
@@ -52,6 +53,7 @@ type Model struct {
 	repoRoot    string
 	cwd         string
 	displayPath string // cwd with $HOME replaced by ~
+	version     string // short rev + date from build info
 	status   *git.Status
 	log      []git.LogEntry
 
@@ -63,6 +65,9 @@ type Model struct {
 	// expandable dir state
 	openDirs    map[string]bool           // dir path → open
 	dirContents map[string][]git.FileEntry // dir path → listed files (populated on expand)
+
+	// expandable commit state
+	openCommits map[string][]string // sha → file list (populated on expand)
 
 	// working tree section
 	wtOpen  bool
@@ -82,7 +87,7 @@ type Model struct {
 	height int
 }
 
-func NewModel(repoRoot, cwd string) Model {
+func NewModel(repoRoot, cwd, version string) Model {
 	ti := textinput.New()
 	ti.Placeholder = "Commit message (Enter=commit  Ctrl-g=editor  Esc=cancel)"
 	ti.CharLimit = 500
@@ -96,9 +101,11 @@ func NewModel(repoRoot, cwd string) Model {
 		repoRoot:    repoRoot,
 		cwd:         cwd,
 		displayPath: displayPath,
+		version:     version,
 		tags:        make(map[string]bool),
 		openDirs:    make(map[string]bool),
 		dirContents: make(map[string][]git.FileEntry),
+		openCommits: make(map[string][]string),
 		commitInput: ti,
 	}
 }
@@ -160,7 +167,13 @@ func (m *Model) buildRows() {
 	m.rows = append(m.rows, row{kind: rowSeparator})
 	m.rows = append(m.rows, row{kind: rowSectionHeader, section: git.SectionLog})
 	for i := range m.log {
-		m.rows = append(m.rows, row{kind: rowCommit, section: git.SectionLog, commit: &m.log[i]})
+		entry := &m.log[i]
+		m.rows = append(m.rows, row{kind: rowCommit, section: git.SectionLog, commit: entry})
+		if files, ok := m.openCommits[entry.SHA]; ok {
+			for _, f := range files {
+				m.rows = append(m.rows, row{kind: rowCommitFile, section: git.SectionLog, commit: entry, dirPath: f, depth: 1})
+			}
+		}
 	}
 }
 
