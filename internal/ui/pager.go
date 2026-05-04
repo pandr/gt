@@ -66,6 +66,27 @@ func execEditor(filePath string) tea.Cmd {
 	})
 }
 
+// execViewFile opens a file in a colorized pager (bat if available, else less -R).
+func execViewFile(absPath string) tea.Cmd {
+	var cmd *exec.Cmd
+	if _, err := exec.LookPath("bat"); err == nil {
+		cmd = exec.Command("bat", "--color=always", "--paging=always", absPath)
+	} else {
+		cmd = exec.Command("less", "-R", absPath)
+	}
+	return tea.ExecProcess(cmd, func(err error) tea.Msg {
+		return execDoneMsg{err: err}
+	})
+}
+
+// execEditFile opens a file in vim.
+func execEditFile(absPath string) tea.Cmd {
+	cmd := exec.Command("vim", absPath)
+	return tea.ExecProcess(cmd, func(err error) tea.Msg {
+		return execDoneMsg{err: err}
+	})
+}
+
 type execDoneMsg struct{ err error }
 type editorDoneMsg struct {
 	filePath string

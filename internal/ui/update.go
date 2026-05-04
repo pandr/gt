@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -179,6 +180,12 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "d":
 		return m, m.doDiff(m.cursorRow(), nil)
+
+	case "v":
+		return m.doViewFile()
+
+	case "V":
+		return m.doEditFile()
 
 	case "r":
 		return m.doRestoreConfirm()
@@ -362,6 +369,22 @@ func (m Model) diffWTFile(path string) tea.Cmd {
 		return nil
 	}
 	return tea.Sequence(cmds...)
+}
+
+func (m Model) doViewFile() (Model, tea.Cmd) {
+	r := m.cursorRow()
+	if r.kind != rowFile {
+		return m, nil
+	}
+	return m, execViewFile(filepath.Join(m.repoRoot, r.file.Path))
+}
+
+func (m Model) doEditFile() (Model, tea.Cmd) {
+	r := m.cursorRow()
+	if r.kind != rowFile {
+		return m, nil
+	}
+	return m, execEditFile(filepath.Join(m.repoRoot, r.file.Path))
 }
 
 func (m Model) doRestoreConfirm() (Model, tea.Cmd) {
@@ -562,8 +585,18 @@ func (m Model) doCollapse() (Model, tea.Cmd) {
 	r := m.cursorRow()
 	switch r.kind {
 	case rowDir:
-		m.openDirs[r.dirPath] = false
-		m.buildRows()
+		if m.openDirs[r.dirPath] {
+			m.openDirs[r.dirPath] = false
+			m.buildRows()
+		} else {
+			// already closed: navigate up to the section header
+			for i := m.cursor - 1; i >= 0; i-- {
+				if m.rows[i].kind == rowSectionHeader {
+					m.cursor = i
+					break
+				}
+			}
+		}
 	case rowFile:
 		// If this file is a child (depth>0), collapse its parent dir
 		if r.depth > 0 {

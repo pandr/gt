@@ -15,6 +15,8 @@ var keyBindings = []keyBinding{
 	{"l / →", "expand directory / section"},
 	{"h / ←", "collapse directory / section"},
 	{"d", "diff at cursor"},
+	{"v", "view file in pager"},
+	{"V", "open file in vim"},
 	{"s", "stage at cursor"},
 	{"u", "unstage at cursor"},
 	{"r", "restore (discard unstaged changes)"},
