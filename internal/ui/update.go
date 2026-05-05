@@ -607,6 +607,16 @@ func (m Model) doExpand() (Model, tea.Cmd) {
 	r := m.cursorRow()
 	switch r.kind {
 	case rowDir:
+		if r.section == git.SectionWorkingTree && r.dirPath == "./" {
+			if !m.wtOpen {
+				m.wtOpen = true
+				if len(m.wtFiles) == 0 {
+					return m, fetchWTFiles(m.cwd)
+				}
+				m.buildRows()
+			}
+			return m, nil
+		}
 		if m.openDirs[r.dirPath] {
 			return m, nil // already open
 		}
@@ -617,14 +627,6 @@ func (m Model) doExpand() (Model, tea.Cmd) {
 		// Working tree dir: files already in wtFiles, just rebuild
 		m.buildRows()
 		return m, nil
-	case rowSectionHeader:
-		if r.section == git.SectionWorkingTree && !m.wtOpen {
-			m.wtOpen = true
-			if len(m.wtFiles) == 0 {
-				return m, fetchWTFiles(m.cwd)
-			}
-			m.buildRows()
-		}
 	case rowCommit:
 		if r.commit == nil {
 			return m, nil
@@ -641,6 +643,13 @@ func (m Model) doCollapse() (Model, tea.Cmd) {
 	r := m.cursorRow()
 	switch r.kind {
 	case rowDir:
+		if r.section == git.SectionWorkingTree && r.dirPath == "./" {
+			if m.wtOpen {
+				m.wtOpen = false
+				m.buildRows()
+			}
+			return m, nil
+		}
 		if m.openDirs[r.dirPath] {
 			m.openDirs[r.dirPath] = false
 			m.buildRows()
@@ -659,17 +668,16 @@ func (m Model) doCollapse() (Model, tea.Cmd) {
 			// find parent rowDir above cursor
 			for i := m.cursor - 1; i >= 0; i-- {
 				if m.rows[i].kind == rowDir {
-					m.openDirs[m.rows[i].dirPath] = false
+					if m.rows[i].section == git.SectionWorkingTree && m.rows[i].dirPath == "./" {
+						m.wtOpen = false
+					} else {
+						m.openDirs[m.rows[i].dirPath] = false
+					}
 					m.cursor = i
 					m.buildRows()
 					break
 				}
 			}
-		}
-	case rowSectionHeader:
-		if r.section == git.SectionWorkingTree {
-			m.wtOpen = false
-			m.buildRows()
 		}
 	case rowCommit:
 		if r.commit != nil {

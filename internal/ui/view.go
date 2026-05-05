@@ -271,6 +271,18 @@ func (m Model) rowContent(r row) string {
 }
 
 func (m Model) dirRow(r row) string {
+	// Working tree root is driven by wtOpen, not openDirs
+	if r.section == git.SectionWorkingTree && r.dirPath == "./" {
+		arrow := "▶"
+		if m.wtOpen {
+			arrow = "▼"
+		}
+		extra := ""
+		if !m.wtOpen && len(m.wtFiles) > 0 {
+			extra = styleDim.Render(fmt.Sprintf("  (%d files)", len(m.wtFiles)))
+		}
+		return "  " + styleDim.Render(arrow) + " " + styleDim.Render("./") + extra
+	}
 	indent := strings.Repeat("  ", r.depth)
 	arrow := "▶"
 	if m.openDirs[r.dirPath] {
@@ -320,14 +332,7 @@ func (m Model) sectionHeader(s git.Section) string {
 		name = "Recent commits"
 		return styleHeader.Render(name)
 	case git.SectionWorkingTree:
-		if m.wtOpen {
-			return styleHeader.Render("Working tree  ./")
-		}
-		label := "Working tree  ./"
-		if len(m.wtFiles) > 0 {
-			label += fmt.Sprintf("  (%d files)", len(m.wtFiles))
-		}
-		return styleHeader.Render(label) + styleDim.Render("  → to expand")
+		return styleHeader.Render("Working tree")
 	}
 	return styleHeader.Render(fmt.Sprintf("%s (%d)", name, count))
 }
@@ -452,7 +457,7 @@ func (m Model) contextHints() string {
 			case git.SectionLog:
 				hints = []string{"R=refresh", "?=help", "q=quit"}
 			case git.SectionWorkingTree:
-				hints = []string{"l/h=expand", "R=refresh", "?=help", "q=quit"}
+				hints = []string{"R=refresh", "?=help", "q=quit"}
 			}
 		case rowFile:
 			switch r.section {

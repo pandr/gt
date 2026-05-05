@@ -157,17 +157,18 @@ func (m *Model) buildRows() {
 	// Working tree section (between git status and recent commits)
 	m.rows = append(m.rows, row{kind: rowSeparator})
 	m.rows = append(m.rows, row{kind: rowSectionHeader, section: git.SectionWorkingTree})
+	m.rows = append(m.rows, row{kind: rowDir, section: git.SectionWorkingTree, dirPath: "./"})
 	if m.wtOpen && len(m.wtFiles) > 0 {
 		for _, group := range groupByTopDir(m.wtFiles) {
 			if group.isDir {
-				m.rows = append(m.rows, row{kind: rowDir, section: git.SectionWorkingTree, dirPath: group.name})
+				m.rows = append(m.rows, row{kind: rowDir, section: git.SectionWorkingTree, dirPath: group.name, depth: 1})
 				if m.openDirs[group.name] {
 					for j := range group.files {
-						m.rows = append(m.rows, row{kind: rowFile, section: git.SectionWorkingTree, file: &group.files[j], depth: 1})
+						m.rows = append(m.rows, row{kind: rowFile, section: git.SectionWorkingTree, file: &group.files[j], depth: 2})
 					}
 				}
 			} else {
-				m.rows = append(m.rows, row{kind: rowFile, section: git.SectionWorkingTree, file: &group.files[0]})
+				m.rows = append(m.rows, row{kind: rowFile, section: git.SectionWorkingTree, file: &group.files[0], depth: 1})
 			}
 		}
 	}
