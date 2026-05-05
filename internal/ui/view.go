@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/charmbracelet/lipgloss"
@@ -218,9 +219,11 @@ func (m Model) renderRow(r row, isCursor bool) string {
 	}
 
 	if isCursor {
-		// pad to width so the highlight spans the full line
+		// Body lines have no inner ANSI codes, so padding would bleed the
+		// background across the whole terminal. Skip padding for them so the
+		// highlight matches the short appearance of the commit header above.
 		padded := line
-		if m.width > 0 {
+		if m.width > 0 && r.kind != rowCommitBody {
 			visible := visibleLen(line)
 			if visible < m.width {
 				padded = line + strings.Repeat(" ", m.width-visible)
@@ -253,10 +256,11 @@ func (m Model) rowContent(r row) string {
 		if _, ok := m.openCommits[r.commit.SHA]; ok {
 			arrow = styleDim.Render("▼")
 		}
-		return "  " + arrow + " " + styleDim.Render(sha) + " " + r.commit.Title
+		ts := styleDim.Render(formatCommitAge(r.commit.Time, time.Now()))
+		return "  " + arrow + " " + styleDim.Render(sha) + " " + ts + " " + r.commit.Title
 	case rowCommitBody:
-		// 12-space indent aligns text under the title ("  ▼ sha7 ")
-		return "            " + styleDim.Render(r.dirPath)
+		// 18-space indent aligns text under the title ("  ▼ sha7 ttttt ")
+		return "                  " + styleDim.Render(r.dirPath)
 	case rowCommitFile:
 		if r.commit == nil {
 			return ""
@@ -494,6 +498,36 @@ func (m Model) helpView() string {
 	}
 	b.WriteString("\nPress ? or q to close")
 	return styleHelp.Render(b.String())
+}
+
+// formatCommitAge renders a commit timestamp as a fixed 5-char field:
+//
+//	"   3m"  under 1 hour
+//	"  30h"  1-47 hours
+//	"  13d"  2-13 days
+//	"DD-MM"  14d up to 1 year
+//	" YYYY"  older than 1 year
+func formatCommitAge(t, now time.Time) string {
+	if t.IsZero() {
+		return "     "
+	}
+	d := now.Sub(t)
+	switch {
+	case d < time.Hour:
+		m := int(d / time.Minute)
+		if m < 1 {
+			m = 1
+		}
+		return fmt.Sprintf("%4dm", m)
+	case d < 48*time.Hour:
+		return fmt.Sprintf("%4dh", int(d/time.Hour))
+	case d < 14*24*time.Hour:
+		return fmt.Sprintf("%4dd", int(d/(24*time.Hour)))
+	case d < 365*24*time.Hour:
+		return t.Format("02-01")
+	default:
+		return fmt.Sprintf(" %4d", t.Year())
+	}
 }
 
 // visibleLen returns the visible (non-ANSI) length of a string.

@@ -3,16 +3,19 @@ package git
 import (
 	"fmt"
 	"os/exec"
+	"strconv"
 	"strings"
+	"time"
 )
 
 type LogEntry struct {
 	SHA   string
 	Title string
+	Time  time.Time
 }
 
 func GetLog(repoRoot string) ([]LogEntry, error) {
-	cmd := exec.Command("git", "log", "-n", "50", "--oneline", "--decorate=short")
+	cmd := exec.Command("git", "log", "-n", "50", "--format=%h %ct %s")
 	cmd.Dir = repoRoot
 	out, err := cmd.Output()
 	if err != nil {
@@ -77,13 +80,18 @@ func parseLog(out string) []LogEntry {
 		if line == "" {
 			continue
 		}
-		parts := strings.SplitN(line, " ", 2)
-		if len(parts) < 2 {
+		parts := strings.SplitN(line, " ", 3)
+		if len(parts) < 3 {
 			continue
+		}
+		var t time.Time
+		if secs, err := strconv.ParseInt(parts[1], 10, 64); err == nil {
+			t = time.Unix(secs, 0)
 		}
 		entries = append(entries, LogEntry{
 			SHA:   parts[0],
-			Title: parts[1],
+			Title: parts[2],
+			Time:  t,
 		})
 	}
 	return entries
