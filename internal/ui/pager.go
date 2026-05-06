@@ -79,6 +79,15 @@ func execViewFile(absPath string) tea.Cmd {
 	})
 }
 
+// execShell suspends the TUI, runs cmd in the user's shell, waits for Enter, then returns shellDoneMsg.
+func execShell(cmd string) tea.Cmd {
+	wrapped := cmd + "; echo; printf '\\033[2mPress Enter to continue…\\033[0m'; read -r _"
+	c := exec.Command("sh", "-c", wrapped)
+	return tea.ExecProcess(c, func(err error) tea.Msg {
+		return shellDoneMsg{err: err}
+	})
+}
+
 // execEditFile opens a file in vim.
 func execEditFile(absPath string) tea.Cmd {
 	cmd := exec.Command("vim", absPath)
@@ -88,6 +97,7 @@ func execEditFile(absPath string) tea.Cmd {
 }
 
 type execDoneMsg struct{ err error }
+type shellDoneMsg struct{ err error }
 type editorDoneMsg struct {
 	filePath string
 	err      error

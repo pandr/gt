@@ -52,7 +52,7 @@ func (m Model) View() string {
 	rendered := visibleEnd - visibleStart
 	headerLines := 2 // branch + blank
 	statusLines := 1
-	if m.mode == modeCommit {
+	if m.mode == modeCommit || m.mode == modeShell {
 		statusLines = 2
 	}
 	h := m.height
@@ -186,7 +186,7 @@ func (m Model) visibleRange() (int, int) {
 	}
 	headerLines := 2
 	statusLines := 1
-	if m.mode == modeCommit {
+	if m.mode == modeCommit || m.mode == modeShell {
 		statusLines = 2
 	}
 	h := m.height
@@ -453,6 +453,9 @@ func (m Model) statusBar() string {
 			prefix = styleMod.Render("amend  ")
 		}
 		return "\n" + prefix + m.commitInput.View()
+	}
+	if m.mode == modeShell {
+		return "\n" + styleHeader.Render("!") + " " + m.commitInput.View()
 	}
 	if m.mode == modeTagPrefix {
 		return styleStatusBar.Render(";_ — waiting for command (s=stage  u=unstage  d=diff)")

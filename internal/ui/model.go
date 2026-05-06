@@ -21,6 +21,7 @@ type mode int
 const (
 	modeNormal mode = iota
 	modeCommit
+	modeShell     // waiting for shell command after !
 	modeTagPrefix // waiting for ;<cmd>
 	modeHelp
 	modeConfirm // waiting for y/n on a destructive action

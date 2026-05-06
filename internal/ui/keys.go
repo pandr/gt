@@ -25,6 +25,7 @@ var keyBindings = []keyBinding{
 	{"t", "toggle tag"},
 	{";s / ;u / ;d", "act on all tagged"},
 	{"T", "clear all tags"},
+	{"!", "run shell command (refreshes after)"},
 	{"c", "commit prompt"},
 	{"A", "amend last commit (unpushed only)"},
 	{"R", "refresh"},

@@ -123,6 +123,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// differences are found, and the pager may exit non-zero on user interrupt.
 		return m, nil
 
+	case shellDoneMsg:
+		return m, refresh(m.repoRoot)
+
 	case editorDoneMsg:
 		if msg.err != nil {
 			m.toast = msg.err.Error()
@@ -172,6 +175,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Commit input mode
 	if m.mode == modeCommit {
 		return m.handleCommitKey(msg)
+	}
+
+	// Shell command mode
+	if m.mode == modeShell {
+		return m.handleShellKey(msg)
 	}
 
 	// Tag prefix mode (waiting for second key after ;)
@@ -296,8 +304,17 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m, hintCmd := setKeyHint(m, "T")
 		return m, hintCmd
 
+	case "!":
+		m.mode = modeShell
+		m.commitInput.Placeholder = "Shell command (Enter=run  Esc=cancel)"
+		m.commitInput.SetValue("")
+		m.commitInput.Focus()
+		m, hintCmd := setKeyHint(m, "!")
+		return m, tea.Batch(hintCmd, textinput.Blink)
+
 	case "c":
 		m.mode = modeCommit
+		m.commitInput.Placeholder = "Commit message (Enter=commit  Ctrl-g=editor  Esc=cancel)"
 		m.commitInput.SetValue("")
 		m.commitInput.Focus()
 		m, hintCmd := setKeyHint(m, "c")
@@ -367,6 +384,26 @@ func (m Model) handleCommitKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, execEditor(f.Name(), m.amendMode)
 	}
 
+	var cmd tea.Cmd
+	m.commitInput, cmd = m.commitInput.Update(msg)
+	return m, cmd
+}
+
+func (m Model) handleShellKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		m.mode = modeNormal
+		m.commitInput.Blur()
+		return m, nil
+	case "enter":
+		cmd := m.commitInput.Value()
+		m.mode = modeNormal
+		m.commitInput.Blur()
+		if cmd == "" {
+			return m, nil
+		}
+		return m, execShell(cmd)
+	}
 	var cmd tea.Cmd
 	m.commitInput, cmd = m.commitInput.Update(msg)
 	return m, cmd
