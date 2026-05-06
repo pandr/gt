@@ -6,19 +6,19 @@ A fast, keyboard-driven TUI for the git operations you do every day. Inspired by
 
 `j`/`k` to move, `l`/`h` to expand or collapse a directory.
 
-![overview](docs/demo-overview.gif)
+![overview](docs/demo-overview.gif)<br>
 
 **Diff any changed file or commit from history**
 
 `j`/`G` to navigate, `d` or `space` to open the diff, `q` to close.
 
-![diff](docs/demo-diff.gif)
+![diff](docs/demo-diff.gif)<br>
 
 **Stage files and commit inline**
 
 `s` to stage, `c` to open the commit prompt, `Enter` to commit.
 
-![stage and commit](docs/demo-stage-commit.gif)
+![stage and commit](docs/demo-stage-commit.gif)<br>
 
 **Tag files across sections and act on all of them at once**
 
