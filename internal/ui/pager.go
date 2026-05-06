@@ -81,7 +81,9 @@ func execViewFile(absPath string) tea.Cmd {
 
 // execShell suspends the TUI, runs cmd in the user's shell, waits for Enter, then returns shellDoneMsg.
 func execShell(cmd string) tea.Cmd {
-	wrapped := cmd + "; echo; printf '\\033[2mPress Enter to continue…\\033[0m'; read -r _"
+	display := strings.ReplaceAll(cmd, "'", `'\''`)
+	wrapped := "printf '\\033[2m$ " + display + "\\033[0m\\n'; " +
+		cmd + "; echo; printf '\\033[2mPress Enter to continue…\\033[0m'; read -r _"
 	c := exec.Command("sh", "-c", wrapped)
 	return tea.ExecProcess(c, func(err error) tea.Msg {
 		return shellDoneMsg{err: err}
