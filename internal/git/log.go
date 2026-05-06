@@ -10,12 +10,13 @@ import (
 
 type LogEntry struct {
 	SHA   string
+	Refs  []string
 	Title string
 	Time  time.Time
 }
 
 func GetLog(repoRoot string) ([]LogEntry, error) {
-	cmd := exec.Command("git", "log", "-n", "50", "--format=%h %ct %s")
+	cmd := exec.Command("git", "log", "-n", "50", "--format=%h%x09%ct%x09%D%x09%s")
 	cmd.Dir = repoRoot
 	out, err := cmd.Output()
 	if err != nil {
@@ -80,17 +81,26 @@ func parseLog(out string) []LogEntry {
 		if line == "" {
 			continue
 		}
-		parts := strings.SplitN(line, " ", 3)
-		if len(parts) < 3 {
+		parts := strings.SplitN(line, "\t", 4)
+		if len(parts) < 4 {
 			continue
 		}
 		var t time.Time
 		if secs, err := strconv.ParseInt(parts[1], 10, 64); err == nil {
 			t = time.Unix(secs, 0)
 		}
+		var refs []string
+		if parts[2] != "" {
+			for _, r := range strings.Split(parts[2], ", ") {
+				if r = strings.TrimSpace(r); r != "" {
+					refs = append(refs, r)
+				}
+			}
+		}
 		entries = append(entries, LogEntry{
 			SHA:   parts[0],
-			Title: parts[2],
+			Refs:  refs,
+			Title: parts[3],
 			Time:  t,
 		})
 	}

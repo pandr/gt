@@ -79,12 +79,16 @@ type Model struct {
 	wtFiles []git.FileEntry // all tracked files under cwd
 
 	mode        mode
+	amendMode   bool
 	commitInput textinput.Model
 
 	// confirm mode
 	confirmPrompt string
 	confirmKind   confirmKind
 	confirmPath   string
+
+	// after the next refresh, move cursor to this file path (used to follow unstage)
+	cursorTargetPath string
 
 	toast string // transient error message
 

@@ -22,6 +22,10 @@ var (
 	styleAdd       = lipgloss.NewStyle().Foreground(lipgloss.Color("2"))
 	styleMod       = lipgloss.NewStyle().Foreground(lipgloss.Color("3"))
 	styleDel       = lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
+	styleRefLocal  = lipgloss.NewStyle().Foreground(lipgloss.Color("6"))          // cyan for local branches
+	styleRefHead   = lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Bold(true) // yellow bold for HEAD ->
+	styleRefRemote = lipgloss.NewStyle().Foreground(lipgloss.Color("6"))          // cyan (non-bold) for remote refs
+	styleRefTag    = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))          // magenta for tags
 )
 
 func (m Model) View() string {
@@ -257,7 +261,11 @@ func (m Model) rowContent(r row) string {
 			arrow = styleDim.Render("▼")
 		}
 		ts := styleDim.Render(formatCommitAge(r.commit.Time, time.Now()))
-		return "  " + arrow + " " + styleDim.Render(sha) + " " + ts + " " + r.commit.Title
+		refs := ""
+		if len(r.commit.Refs) > 0 {
+			refs = " " + renderRefs(r.commit.Refs)
+		}
+		return "  " + arrow + " " + styleDim.Render(sha) + " " + ts + " " + r.commit.Title + refs
 	case rowCommitBody:
 		// 18-space indent aligns text under the title ("  ▼ sha7 ttttt ")
 		return "                  " + styleDim.Render(r.dirPath)
@@ -331,6 +339,14 @@ func (m Model) sectionHeader(s git.Section) string {
 		name = "Staged"
 		if m.status != nil {
 			count = len(m.status.Staged)
+			var totalAdded, totalDeleted int
+			for _, f := range m.status.Staged {
+				totalAdded += f.Added
+				totalDeleted += f.Deleted
+			}
+			if totalAdded > 0 || totalDeleted > 0 {
+				return styleHeader.Render(fmt.Sprintf("%s (%d)", name, count)) + formatStats(totalAdded, totalDeleted)
+			}
 		}
 	case git.SectionLog:
 		name = "Recent commits"
@@ -407,12 +423,36 @@ func formatStats(added, deleted int) string {
 	return s
 }
 
+func renderRefs(refs []string) string {
+	var parts []string
+	for _, r := range refs {
+		var rendered string
+		switch {
+		case strings.HasPrefix(r, "HEAD -> "):
+			branch := strings.TrimPrefix(r, "HEAD -> ")
+			rendered = styleRefHead.Render("HEAD → ") + styleRefLocal.Render(branch)
+		case strings.HasPrefix(r, "tag: "):
+			rendered = styleRefTag.Render(r)
+		case strings.Contains(r, "/"):
+			rendered = styleRefRemote.Render(r)
+		default:
+			rendered = styleRefLocal.Render(r)
+		}
+		parts = append(parts, rendered)
+	}
+	return styleDim.Render("(") + strings.Join(parts, styleDim.Render(", ")) + styleDim.Render(")")
+}
+
 func (m Model) statusBar() string {
 	if m.mode == modeHelp {
 		return ""
 	}
 	if m.mode == modeCommit {
-		return "\n" + m.commitInput.View()
+		prefix := ""
+		if m.amendMode {
+			prefix = styleMod.Render("amend  ")
+		}
+		return "\n" + prefix + m.commitInput.View()
 	}
 	if m.mode == modeTagPrefix {
 		return styleStatusBar.Render(";_ — waiting for command (s=stage  u=unstage  d=diff)")
@@ -442,10 +482,15 @@ func (m Model) contextHints() string {
 		switch r.kind {
 		case rowCommit:
 			if r.commit != nil {
+				isFirst := len(m.log) > 0 && r.commit.SHA == m.log[0].SHA
+				canAmend := isFirst && (m.status == nil || m.status.Upstream == "" || m.status.Ahead > 0)
 				if _, ok := m.openCommits[r.commit.SHA]; ok {
 					hints = []string{"d=diff", "h=collapse", "t=tag", "?=help", "q=quit"}
 				} else {
 					hints = []string{"d=diff", "l=expand", "t=tag", "?=help", "q=quit"}
+				}
+				if canAmend {
+					hints = append([]string{"A=amend"}, hints...)
 				}
 			}
 		case rowCommitFile:

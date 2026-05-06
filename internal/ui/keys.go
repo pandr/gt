@@ -26,6 +26,7 @@ var keyBindings = []keyBinding{
 	{";s / ;u / ;d", "act on all tagged"},
 	{"T", "clear all tags"},
 	{"c", "commit prompt"},
+	{"A", "amend last commit (unpushed only)"},
 	{"R", "refresh"},
 	{"?", "help"},
 	{"q / Ctrl-c", "quit"},

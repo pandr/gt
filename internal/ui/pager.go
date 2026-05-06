@@ -52,7 +52,7 @@ func execDiff(gitCmd *exec.Cmd) tea.Cmd {
 }
 
 // execEditor opens $EDITOR on a temp file and returns its path via msg.
-func execEditor(filePath string) tea.Cmd {
+func execEditor(filePath string, amend bool) tea.Cmd {
 	editor := os.Getenv("EDITOR")
 	if editor == "" {
 		editor = os.Getenv("VISUAL")
@@ -62,7 +62,7 @@ func execEditor(filePath string) tea.Cmd {
 	}
 	cmd := exec.Command(editor, filePath)
 	return tea.ExecProcess(cmd, func(err error) tea.Msg {
-		return editorDoneMsg{filePath: filePath, err: err}
+		return editorDoneMsg{filePath: filePath, err: err, amend: amend}
 	})
 }
 
@@ -91,4 +91,5 @@ type execDoneMsg struct{ err error }
 type editorDoneMsg struct {
 	filePath string
 	err      error
+	amend    bool
 }

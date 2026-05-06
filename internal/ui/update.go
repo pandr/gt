@@ -75,7 +75,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.log = msg.log
 			m.buildRows()
 			m.pruneTags()
-			m.clampCursor()
+			if m.cursorTargetPath != "" {
+				found := false
+				for i, r := range m.rows {
+					if r.file != nil && r.file.Path == m.cursorTargetPath {
+						m.cursor = i
+						found = true
+						break
+					}
+				}
+				m.cursorTargetPath = ""
+				if !found {
+					m.clampCursor()
+					m.skipSeparators(+1)
+				}
+			} else {
+				m.clampCursor()
+				m.skipSeparators(+1)
+			}
 		}
 		return m, nil
 
@@ -111,9 +128,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.toast = msg.err.Error()
 			return m, nil
 		}
-		err := git.CommitFile(m.repoRoot, msg.filePath)
+		var err error
+		if msg.amend {
+			err = git.CommitAmendFile(m.repoRoot, msg.filePath)
+		} else {
+			err = git.CommitFile(m.repoRoot, msg.filePath)
+		}
 		os.Remove(msg.filePath)
 		m.mode = modeNormal
+		m.amendMode = false
 		m.commitInput.Blur()
 		if err != nil {
 			m.toast = err.Error()
@@ -254,6 +277,9 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if !m.tags[k] {
 				delete(m.tags, k)
 			}
+			m.cursor++
+			m.skipSeparators(+1)
+			m.clampCursor()
 		}
 		m, hintCmd := setKeyHint(m, "t")
 		return m, hintCmd
@@ -276,6 +302,22 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.commitInput.Focus()
 		m, hintCmd := setKeyHint(m, "c")
 		return m, tea.Batch(hintCmd, textinput.Blink)
+
+	case "A":
+		if len(m.log) == 0 {
+			m.toast = "no commits to amend"
+			return m, nil
+		}
+		if m.status != nil && m.status.Upstream != "" && m.status.Ahead == 0 {
+			m.toast = "cannot amend: commit already pushed"
+			return m, nil
+		}
+		m.amendMode = true
+		m.mode = modeCommit
+		m.commitInput.SetValue(m.log[0].Title)
+		m.commitInput.Focus()
+		m, hintCmd := setKeyHint(m, "A")
+		return m, tea.Batch(hintCmd, textinput.Blink)
 	}
 
 	return m, nil
@@ -285,20 +327,29 @@ func (m Model) handleCommitKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc":
 		m.mode = modeNormal
+		m.amendMode = false
 		m.commitInput.Blur()
 		return m, nil
 
 	case "enter":
-		msg := m.commitInput.Value()
-		if msg == "" {
+		text := m.commitInput.Value()
+		if text == "" {
 			m.toast = "commit message is empty"
 			m.mode = modeNormal
+			m.amendMode = false
 			m.commitInput.Blur()
 			return m, nil
 		}
 		m.mode = modeNormal
+		amend := m.amendMode
+		m.amendMode = false
 		m.commitInput.Blur()
-		err := git.Commit(m.repoRoot, msg)
+		var err error
+		if amend {
+			err = git.CommitAmend(m.repoRoot, text)
+		} else {
+			err = git.Commit(m.repoRoot, text)
+		}
 		if err != nil {
 			m.toast = err.Error()
 			return m, nil
@@ -313,7 +364,7 @@ func (m Model) handleCommitKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		f.WriteString(m.commitInput.Value())
 		f.Close()
-		return m, execEditor(f.Name())
+		return m, execEditor(f.Name(), m.amendMode)
 	}
 
 	var cmd tea.Cmd
@@ -513,6 +564,14 @@ func (m Model) doUnstage() (Model, tea.Cmd) {
 	switch r.kind {
 	case rowFile:
 		if r.section == git.SectionStaged {
+			// find next staged file to restore cursor after refresh (insertion in Unstaged
+			// above would otherwise shift cursor off the intended next item)
+			for i := m.cursor + 1; i < len(m.rows); i++ {
+				if m.rows[i].kind == rowFile && m.rows[i].section == git.SectionStaged {
+					m.cursorTargetPath = m.rows[i].file.Path
+					break
+				}
+			}
 			if err := git.Unstage(m.repoRoot, r.file.Path); err != nil {
 				m.toast = err.Error()
 				return m, nil
