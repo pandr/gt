@@ -10,7 +10,7 @@ Set TypingSpeed 70ms
 
 # Hidden setup: build gt and create throwaway demo repo in /tmp
 Hide
-Type "cd /Users/petera/git/gt && go build -o /tmp/gt-demo-bin ./cmd/gt/ 2>/dev/null && bash docs/demo-setup.sh && cd /tmp/gt-demo && export PS1='$ ' && export GT_DEMO_KEYS=1"
+Type "cd /Users/petera/git/gt && go build -o /tmp/gt-demo-bin ./cmd/gt/ 2>/dev/null && bash docs/demo-setup.sh && cd /tmp/gt-demo && export PS1='$ '"
 Enter
 Sleep 12s
 Type "clear"

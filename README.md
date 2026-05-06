@@ -4,17 +4,25 @@ A fast, keyboard-driven TUI for the git operations you do every day. Inspired by
 
 **Instant overview of your repo state**
 
+`j`/`k` to move, `l`/`h` to expand or collapse a directory.
+
 ![overview](docs/demo-overview.gif)
 
-**Diff any changed or staged file — or inspect a commit from history**
+**Diff any changed file or commit from history**
+
+`j`/`G` to navigate, `d` or `space` to open the diff, `q` to close.
 
 ![diff](docs/demo-diff.gif)
 
 **Stage files and commit inline**
 
+`s` to stage, `c` to open the commit prompt, `Enter` to commit.
+
 ![stage and commit](docs/demo-stage-commit.gif)
 
 **Tag files across sections and act on all of them at once**
+
+`t` to tag a file (cursor advances automatically), `;s` to stage everything tagged.
 
 ![tag and batch](docs/demo-tag-batch.gif)
 
@@ -60,15 +68,19 @@ gt
 | `Ctrl-d` / `Ctrl-u` | half page down / up |
 | `l` / `→` | expand directory or section |
 | `h` / `←` | collapse directory or section |
-| `d` | diff at cursor (file, section, or commit) |
+| `d` / `space` | diff at cursor (file, section, or commit) |
 | `s` | stage at cursor |
 | `u` | unstage at cursor |
+| `r` | restore — discard unstaged changes (asks y/n) |
 | `x` | untrack file, keep on disk (`git rm --cached`) |
 | `X` | untrack and delete file from disk (asks y/n) |
-| `t` | toggle tag on row |
+| `v` / `V` | view file in pager / open in `$EDITOR` |
+| `t` | toggle tag on row (cursor advances) |
 | `;s` / `;u` / `;d` | stage / unstage / diff all tagged |
 | `T` | clear all tags |
-| `c` | open commit prompt (`Ctrl-g` for `$EDITOR`, `Esc` to cancel) |
+| `c` | commit prompt (`Ctrl-g` for `$EDITOR`, `Esc` to cancel) |
+| `A` | amend last commit — only allowed before push |
+| `!` | run a shell command, then refresh |
 | `R` | refresh |
 | `?` | help |
 | `q` / `Ctrl-c` | quit |

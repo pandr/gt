@@ -85,14 +85,6 @@ Row 14:   <sha>  initial commit
 
 After staging `README.md` the cursor stays at index 4, which is now `src/main.go` (the section shrinks by one).
 
-## Key-hint overlay (GT_DEMO_KEYS=1)
-
-The yellow popup box is built into gt, gated by `GT_DEMO_KEYS=1`. Implementation:
-
-- `internal/ui/model.go` — `keyHint string`, `keyHintToken int` fields
-- `internal/ui/update.go` — `setKeyHint(m, key)` sets the hint and schedules a `clearKeyHintMsg` after 700 ms; a token counter ensures stale timers from chained keys (`;` then `;s`) don't clobber each other
-- `internal/ui/view.go` — `overlayKeyHint()` splices the box into the bottom-right corner of the rendered screen string using `spliceAt()`, which is ANSI-aware; `styleKeyHint` defines the yellow style
-
 ## Terminal identity trick
 
 Each tape's hidden setup section copies the demo binary to `/tmp/gt-demo-path/gt` and prepends that directory to `$PATH`. This means the visible `Show` section simply types `gt` — matching what a real user would run.
