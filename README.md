@@ -68,13 +68,15 @@ gt
 | `Ctrl-d` / `Ctrl-u` | half page down / up |
 | `l` / `→` | expand directory or section |
 | `h` / `←` | collapse directory or section |
+| `enter` | open — expand dir/commit, diff file or section |
 | `d` / `space` | diff at cursor (file, section, or commit) |
 | `s` | stage at cursor |
 | `u` | unstage at cursor |
 | `r` | restore — discard unstaged changes (asks y/n) |
 | `x` | untrack file, keep on disk (`git rm --cached`) |
 | `X` | untrack and delete file from disk (asks y/n) |
-| `v` / `V` | view file in pager / open in `$EDITOR` |
+| `v` | view file in pager |
+| `e` | open file in editor |
 | `t` | toggle tag on row (cursor advances) |
 | `;s` / `;u` / `;d` | stage / unstage / diff all tagged |
 | `T` | clear all tags |

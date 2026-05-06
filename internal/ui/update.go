@@ -222,13 +222,23 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "left", "h":
 		return m.doCollapse()
 
+	case "enter":
+		r := m.cursorRow()
+		if r.kind == rowDir || r.kind == rowCommit {
+			return m.doExpand()
+		}
+		if r.kind == rowFile && r.section == git.SectionWorkingTree && m.statusForPath(r.file.Path) == nil {
+			return m.doViewFile()
+		}
+		return m, m.doDiff(r, nil)
+
 	case "d", " ":
 		return m, m.doDiff(m.cursorRow(), nil)
 
 	case "v":
 		return m.doViewFile()
 
-	case "V":
+	case "e":
 		return m.doEditFile()
 
 	case "r":
