@@ -230,7 +230,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m2, cmd := m.doCollapse()
 		return m2, tea.Batch(hintCmd, cmd)
 
-	case "d":
+	case "d", " ":
 		m, hintCmd := setKeyHint(m, "d")
 		return m, tea.Batch(hintCmd, m.doDiff(m.cursorRow(), nil))
 

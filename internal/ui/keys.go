@@ -14,7 +14,7 @@ var keyBindings = []keyBinding{
 	{"Ctrl-u", "half page up"},
 	{"l / →", "expand directory / section"},
 	{"h / ←", "collapse directory / section"},
-	{"d", "diff at cursor"},
+	{"d / space", "diff at cursor"},
 	{"v", "view file in pager"},
 	{"V", "open file in vim"},
 	{"s", "stage at cursor"},
