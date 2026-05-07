@@ -20,11 +20,11 @@ A fast, keyboard-driven TUI for the git operations you do every day. Inspired by
 
 ![stage and commit](docs/demo-stage-commit.gif)<br><br>
 
-**Tag files across sections and act on all of them at once**
+**Amend the last commit**
 
-`t` to tag a file (cursor advances automatically), `;s` to stage everything tagged.
+Navigate to the most recent commit, press `A` — the inline prompt opens with the existing message prefilled. Edit and `Enter` to amend.
 
-![tag and batch](docs/demo-tag-batch.gif)
+![amend](docs/demo-amend.gif)
 
 ## Features
 

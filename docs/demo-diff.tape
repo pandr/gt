@@ -1,7 +1,7 @@
 Output docs/demo-diff.gif
 
 Set Shell "bash"
-Set FontSize 14
+Set FontSize 20
 Set Width 1200
 Set Height 700
 Set Theme "SeaShells"
@@ -40,10 +40,29 @@ Sleep 2800ms
 Type "q"
 Sleep 900ms
 
-# Navigate to a recent commit and diff it
+# Navigate to "add install instructions" commit (6 more j's from README.md)
+Type "j"
+Sleep 300ms
+Type "j"
+Sleep 300ms
+Type "j"
+Sleep 300ms
+Type "j"
+Sleep 300ms
+Type "j"
+Sleep 300ms
+Type "j"
+Sleep 500ms
+
+# Expand the commit to show its files
+Type "l"
+Sleep 1000ms
+
+# Navigate into the file entry
+Type "j"
 Sleep 400ms
-Type "G"
-Sleep 700ms
+
+# Diff that file within the commit
 Type "d"
 Sleep 2800ms
 Type "q"

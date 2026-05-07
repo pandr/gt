@@ -1,4 +1,4 @@
-Output docs/demo-stage-commit.gif
+Output docs/demo-amend.gif
 
 Set Shell "bash"
 Set FontSize 20
@@ -23,30 +23,26 @@ Sleep 500ms
 Enter
 Sleep 2s
 
-# Navigate to README.md in Unstaged (j j j j from Untracked header)
-Type "j"
+# Jump to bottom (initial commit), then navigate up to most recent commit
+Type "G"
+Sleep 700ms
+Type "k"
 Sleep 300ms
-Type "j"
-Sleep 300ms
-Type "j"
-Sleep 300ms
-Type "j"
-Sleep 300ms
-
-# Stage README.md — it moves to Staged; cursor lands on src/main.go
+Type "k"
 Sleep 500ms
-Type "s"
-Sleep 1400ms
 
-# Stage src/main.go
-Type "s"
-Sleep 1400ms
-
-# Open commit prompt and type message
-Sleep 400ms
-Type "c"
+# Amend — inline prompt opens with current message prefilled
+Type "A"
 Sleep 900ms
-Type "add usage section and update main"
+
+# Clear the prefilled message and type a corrected one
+Sleep 300ms
+Ctrl+u
+Sleep 400ms
+Type "release v1.0.0"
 Sleep 700ms
 Enter
 Sleep 2500ms
+
+Type "q"
+Sleep 300ms
