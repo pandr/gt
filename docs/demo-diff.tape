@@ -40,19 +40,11 @@ Sleep 2800ms
 Type "q"
 Sleep 900ms
 
-# Navigate to "add install instructions" commit (6 more j's from README.md)
-Type "j"
-Sleep 300ms
-Type "j"
-Sleep 300ms
-Type "j"
-Sleep 300ms
-Type "j"
-Sleep 300ms
-Type "j"
-Sleep 300ms
-Type "j"
-Sleep 500ms
+# Jump to bottom, then back up one to "add install instructions"
+Type "G"
+Sleep 700ms
+Type "k"
+Sleep 400ms
 
 # Expand the commit to show its files
 Type "l"
