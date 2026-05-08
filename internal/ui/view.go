@@ -136,6 +136,12 @@ func (m Model) renderRow(r row, isCursor bool) string {
 	line := rail + " " + content
 
 	if isCursor {
+		if m.width > 0 {
+			visible := visibleLen(line)
+			if visible < m.width {
+				line += strings.Repeat(" ", m.width-visible)
+			}
+		}
 		return cursorBg.Render(line)
 	}
 	return line
