@@ -814,7 +814,7 @@ func (m Model) doCollapse() (Model, tea.Cmd) {
 				m.buildRows()
 			}
 		}
-	case rowCommitFile:
+	case rowCommitBody, rowCommitFile:
 		if r.commit != nil {
 			delete(m.openCommits, r.commit.SHA)
 			// move cursor up to the parent commit row
