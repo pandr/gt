@@ -180,6 +180,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleConfirmKey(msg)
 	}
 
+	// Inline diff view
+	if m.mode == modeDiff {
+		return m.handleDiffKey(msg)
+	}
+
 	// Normal mode
 	switch msg.String() {
 	case "q", "ctrl+c":
@@ -230,10 +235,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if r.kind == rowFile && r.section == git.SectionWorkingTree && m.statusForPath(r.file.Path) == nil {
 			return m.doViewFile()
 		}
-		return m, m.doDiff(r, nil)
+		return m.doDiff(r, nil)
 
 	case "d", " ":
-		return m, m.doDiff(m.cursorRow(), nil)
+		return m.doDiff(m.cursorRow(), nil)
 
 	case "v":
 		return m.doViewFile()
@@ -384,7 +389,7 @@ func (m Model) handleTagPrefixKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	m.mode = modeNormal
 	switch msg.String() {
 	case "d":
-		return m, m.doDiff(row{}, m.tags)
+		return m.doDiff(row{}, m.tags)
 	case "s":
 		return m.doTaggedStage()
 	case "u":
@@ -403,33 +408,56 @@ func (m Model) cursorRow() row {
 	return m.rows[m.cursor]
 }
 
-// doDiff builds and executes the diff for the cursor row or tagged set.
-func (m Model) doDiff(r row, tags map[string]bool) tea.Cmd {
-	// Tagged diff: if we have tags, diff all of them
+// inlineDiffThreshold is the maximum number of diff content lines before
+// gt falls back to the user's pager instead of rendering inline.
+const inlineDiffThreshold = 1000
+
+// doDiff opens a diff for the given row or tagged set.
+// Per-file diffs on staged/unstaged/untracked rows open inline; everything
+// else (section headers, commits, tagged sets, working-tree files) uses the pager.
+func (m Model) doDiff(r row, tags map[string]bool) (tea.Model, tea.Cmd) {
 	if len(tags) > 0 {
-		return m.taggedDiff(tags)
+		return m, m.taggedDiff(tags)
 	}
 
 	switch r.kind {
 	case rowFile:
 		if r.section == git.SectionWorkingTree {
-			return m.diffWTFile(r.file.Path)
+			return m, m.diffWTFile(r.file.Path)
 		}
-		cmd := git.DiffCmd(m.repoRoot, r.section, r.file.Path)
-		return execDiff(cmd)
+		return m.doInlineDiff(r.file.Path, r.section)
 	case rowSectionHeader:
-		cmd := git.DiffCmd(m.repoRoot, r.section, "")
-		return execDiff(cmd)
+		return m, execDiff(git.DiffCmd(m.repoRoot, r.section, ""))
 	case rowCommit:
-		cmd := git.ShowCmd(m.repoRoot, r.commit.SHA)
-		return execDiff(cmd)
+		return m, execDiff(git.ShowCmd(m.repoRoot, r.commit.SHA))
 	case rowCommitFile:
 		if r.commit != nil {
-			cmd := git.ShowFileCmd(m.repoRoot, r.commit.SHA, r.dirPath)
-			return execDiff(cmd)
+			return m, execDiff(git.ShowFileCmd(m.repoRoot, r.commit.SHA, r.dirPath))
 		}
 	}
-	return nil
+	return m, nil
+}
+
+// doInlineDiff parses the diff for path/section and enters modeDiff, unless
+// the diff is too large in which case it falls back to the pager.
+func (m Model) doInlineDiff(path string, section git.Section) (tea.Model, tea.Cmd) {
+	d, err := git.ParseDiff(m.repoRoot, section, path)
+	if err != nil {
+		m.toast = err.Error()
+		return m, nil
+	}
+	if d == nil || len(d.Hunks) == 0 {
+		m.toast = "no diff"
+		return m, nil
+	}
+	if d.TotalLines() > inlineDiffThreshold {
+		return m, execDiff(git.DiffCmd(m.repoRoot, section, path))
+	}
+	m.diff = d
+	m.diffFlat = flatDiffLines(d)
+	m.diffCursor = 0
+	m.mode = modeDiff
+	return m, nil
 }
 
 func (m Model) taggedDiff(tags map[string]bool) tea.Cmd {
@@ -834,4 +862,74 @@ func refresh(repoRoot string) tea.Cmd {
 		}
 		return refreshMsg{status: status, log: log}
 	}
+}
+
+// handleDiffKey handles keypresses in modeDiff.
+func (m Model) handleDiffKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "q", "esc":
+		m.mode = modeNormal
+		m.diff = nil
+		m.diffFlat = nil
+	case "j", "down":
+		if m.diffCursor < len(m.diffFlat)-1 {
+			m.diffCursor++
+		}
+	case "k", "up":
+		if m.diffCursor > 0 {
+			m.diffCursor--
+		}
+	case "g":
+		m.diffCursor = 0
+	case "G":
+		if len(m.diffFlat) > 0 {
+			m.diffCursor = len(m.diffFlat) - 1
+		}
+	case "]":
+		m.diffCursor = m.nextHunkStart(m.diffCursor)
+	case "[":
+		m.diffCursor = m.prevHunkStart(m.diffCursor)
+	case "e":
+		if m.diff != nil {
+			return m, execEditFile(filepath.Join(m.repoRoot, m.diff.Path))
+		}
+	case "L":
+		if m.diff != nil {
+			return m, execDiff(git.DiffCmd(m.repoRoot, m.diff.Section, m.diff.Path))
+		}
+	}
+	return m, nil
+}
+
+// nextHunkStart returns the flat index of the next hunk header after cur.
+func (m Model) nextHunkStart(cur int) int {
+	for i := cur + 1; i < len(m.diffFlat); i++ {
+		if m.diffFlat[i].lineIdx < 0 {
+			return i
+		}
+	}
+	return cur
+}
+
+// prevHunkStart returns the flat index of the current hunk's header, or the
+// previous hunk's header if cur is already on a hunk header.
+func (m Model) prevHunkStart(cur int) int {
+	if cur == 0 {
+		return 0
+	}
+	curHunkIdx := m.diffFlat[cur].hunkIdx
+	isHeader := m.diffFlat[cur].lineIdx < 0
+	targetHunk := curHunkIdx
+	if isHeader {
+		targetHunk = curHunkIdx - 1
+	}
+	if targetHunk < 0 {
+		return cur
+	}
+	for i := 0; i < cur; i++ {
+		if m.diffFlat[i].hunkIdx == targetHunk && m.diffFlat[i].lineIdx < 0 {
+			return i
+		}
+	}
+	return cur
 }
