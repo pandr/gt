@@ -37,9 +37,18 @@ type diffViewLine struct {
 }
 
 // flatDiffLines builds the flat ordered list of view lines for a ParsedDiff.
+// lineIdx == -2 means a file-separator header (multi-file commit diffs only).
+// lineIdx == -1 means a hunk header (@@ line).
+// lineIdx >= 0 is a content line within the hunk.
 func flatDiffLines(d *git.ParsedDiff) []diffViewLine {
 	var lines []diffViewLine
+	prevFile := ""
 	for i := range d.Hunks {
+		fp := d.Hunks[i].FilePath
+		if fp != "" && fp != prevFile {
+			lines = append(lines, diffViewLine{hunkIdx: i, lineIdx: -2})
+			prevFile = fp
+		}
 		lines = append(lines, diffViewLine{hunkIdx: i, lineIdx: -1})
 		for j := range d.Hunks[i].Lines {
 			lines = append(lines, diffViewLine{hunkIdx: i, lineIdx: j})

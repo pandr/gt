@@ -53,35 +53,44 @@ func (m Model) diffView() string {
 	return b.String()
 }
 
-// diffTitleBar renders the top line of the diff view:
-// ┊ branch · diff file (section)               +N/-N · hunk M/T
+// diffTitleBar renders the top line of the diff view.
+// File diffs: ┊ branch · diff file (section)    +N/-N · hunk M/T
+// Commit diffs: ┊ sha7 · diff file               +N/-N · hunk M/T
 func (m Model) diffTitleBar() string {
 	d := m.diff
 
-	branch := ""
-	if m.status != nil {
-		branch = m.status.Branch
-		if branch == "(detached)" || branch == "" {
-			branch = "detached"
+	var left string
+	if d.SHA != "" {
+		// Commit diff — lead with the SHA instead of branch
+		left = railFaint.Render("┊") + " " +
+			shaIris.Render(d.SHA) + " " +
+			fgFaint.Render("·") + " " +
+			fgSoft.Render("diff") + " " +
+			d.Path
+	} else {
+		branch := ""
+		if m.status != nil {
+			branch = m.status.Branch
+			if branch == "(detached)" || branch == "" {
+				branch = "detached"
+			}
 		}
+		var sectLabel string
+		switch d.Section {
+		case git.SectionUnstaged:
+			sectLabel = "unstaged"
+		case git.SectionStaged:
+			sectLabel = "staged"
+		case git.SectionUntracked:
+			sectLabel = "untracked"
+		}
+		left = railFaint.Render("┊") + " " +
+			branchIris.Render(branch) + " " +
+			fgFaint.Render("·") + " " +
+			fgSoft.Render("diff") + " " +
+			d.Path +
+			" " + fgFaint.Render("("+sectLabel+")")
 	}
-
-	var sectLabel string
-	switch d.Section {
-	case git.SectionUnstaged:
-		sectLabel = "unstaged"
-	case git.SectionStaged:
-		sectLabel = "staged"
-	case git.SectionUntracked:
-		sectLabel = "untracked"
-	}
-
-	left := railFaint.Render("┊") + " " +
-		branchIris.Render(branch) + " " +
-		fgFaint.Render("·") + " " +
-		fgSoft.Render("diff") + " " +
-		d.Path +
-		" " + fgFaint.Render("("+sectLabel+")")
 
 	// Hunk position: which hunk contains the cursor
 	hunkNum := 1
@@ -134,7 +143,16 @@ func (m Model) renderDiffViewLine(i int) string {
 	hunk := m.diff.Hunks[vl.hunkIdx]
 
 	var content string
-	if vl.lineIdx < 0 {
+	if vl.lineIdx == -2 {
+		// File separator (multi-file commit diffs)
+		fp := hunk.FilePath
+		line := railFaint.Render("┊") + " " + fgSoft.Render(fp)
+		if i == m.diffCursor {
+			return applyCursorBg(line, m.width)
+		}
+		return line
+	}
+	if vl.lineIdx == -1 {
 		// Hunk header line: split "@@ ... @@" from trailing context
 		raw := hunk.Header
 		rest := raw[2:] // skip leading "@@"

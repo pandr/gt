@@ -10,6 +10,7 @@ const (
 	SectionStaged
 	SectionLog
 	SectionWorkingTree
+	SectionCommit // git show (commit or commit-file diff)
 )
 
 // DiffCmd returns an exec.Cmd for the given diff target.

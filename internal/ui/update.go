@@ -429,10 +429,10 @@ func (m Model) doDiff(r row, tags map[string]bool) (tea.Model, tea.Cmd) {
 	case rowSectionHeader:
 		return m, execDiff(git.DiffCmd(m.repoRoot, r.section, ""))
 	case rowCommit:
-		return m, execDiff(git.ShowCmd(m.repoRoot, r.commit.SHA))
+		return m.doInlineCommitDiff(r.commit.SHA, "")
 	case rowCommitFile:
 		if r.commit != nil {
-			return m, execDiff(git.ShowFileCmd(m.repoRoot, r.commit.SHA, r.dirPath))
+			return m.doInlineCommitDiff(r.commit.SHA, r.dirPath)
 		}
 	}
 	return m, nil
@@ -452,6 +452,30 @@ func (m Model) doInlineDiff(path string, section git.Section) (tea.Model, tea.Cm
 	}
 	if d.TotalLines() > inlineDiffThreshold {
 		return m, execDiff(git.DiffCmd(m.repoRoot, section, path))
+	}
+	m.diff = d
+	m.diffFlat = flatDiffLines(d)
+	m.diffCursor = 0
+	m.mode = modeDiff
+	return m, nil
+}
+
+// doInlineCommitDiff opens a git show diff inline. filePath may be empty for whole-commit diffs.
+func (m Model) doInlineCommitDiff(sha, filePath string) (tea.Model, tea.Cmd) {
+	d, err := git.ParseCommitDiff(m.repoRoot, sha, filePath)
+	if err != nil {
+		m.toast = err.Error()
+		return m, nil
+	}
+	if d == nil || len(d.Hunks) == 0 {
+		m.toast = "no diff"
+		return m, nil
+	}
+	if d.TotalLines() > inlineDiffThreshold {
+		if filePath != "" {
+			return m, execDiff(git.ShowFileCmd(m.repoRoot, sha, filePath))
+		}
+		return m, execDiff(git.ShowCmd(m.repoRoot, sha))
 	}
 	m.diff = d
 	m.diffFlat = flatDiffLines(d)
@@ -895,39 +919,52 @@ func (m Model) handleDiffKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	case "L":
 		if m.diff != nil {
-			return m, execDiff(git.DiffCmd(m.repoRoot, m.diff.Section, m.diff.Path))
+			return m, m.diffFallbackCmd()
 		}
 	}
 	return m, nil
 }
 
-// nextHunkStart returns the flat index of the next hunk header after cur.
+// diffFallbackCmd returns a tea.Cmd that opens the current diff in the user's pager.
+func (m Model) diffFallbackCmd() tea.Cmd {
+	d := m.diff
+	if d.SHA != "" {
+		// commit diff
+		if d.Path == d.SHA {
+			return execDiff(git.ShowCmd(m.repoRoot, d.SHA))
+		}
+		return execDiff(git.ShowFileCmd(m.repoRoot, d.SHA, d.Path))
+	}
+	return execDiff(git.DiffCmd(m.repoRoot, d.Section, d.Path))
+}
+
+// nextHunkStart returns the flat index of the next hunk header (lineIdx == -1) after cur.
 func (m Model) nextHunkStart(cur int) int {
 	for i := cur + 1; i < len(m.diffFlat); i++ {
-		if m.diffFlat[i].lineIdx < 0 {
+		if m.diffFlat[i].lineIdx == -1 {
 			return i
 		}
 	}
 	return cur
 }
 
-// prevHunkStart returns the flat index of the current hunk's header, or the
-// previous hunk's header if cur is already on a hunk header.
+// prevHunkStart returns the flat index of the current hunk's @@ header, or the
+// previous hunk's @@ header if cur is already on a hunk header or file separator.
 func (m Model) prevHunkStart(cur int) int {
 	if cur == 0 {
 		return 0
 	}
 	curHunkIdx := m.diffFlat[cur].hunkIdx
-	isHeader := m.diffFlat[cur].lineIdx < 0
+	isOnHeader := m.diffFlat[cur].lineIdx == -1
 	targetHunk := curHunkIdx
-	if isHeader {
+	if isOnHeader {
 		targetHunk = curHunkIdx - 1
 	}
 	if targetHunk < 0 {
 		return cur
 	}
 	for i := 0; i < cur; i++ {
-		if m.diffFlat[i].hunkIdx == targetHunk && m.diffFlat[i].lineIdx < 0 {
+		if m.diffFlat[i].hunkIdx == targetHunk && m.diffFlat[i].lineIdx == -1 {
 			return i
 		}
 	}

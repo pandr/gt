@@ -24,6 +24,7 @@ type DiffLine struct {
 }
 
 type Hunk struct {
+	FilePath string // which file this hunk belongs to (populated for commit diffs)
 	Header   string // full "@@ ... @@" line
 	OldStart int
 	NewStart int
@@ -31,15 +32,16 @@ type Hunk struct {
 }
 
 type ParsedDiff struct {
-	Path    string
+	Path    string  // display name: file path for file diffs, sha7 for whole-commit diffs
+	SHA     string  // non-empty for commit diffs
 	Section Section
 	Hunks   []Hunk
 	Added   int
 	Deleted int
 }
 
-// TotalLines returns the total number of content lines across all hunks
-// (not counting hunk headers), used for the large-diff fallback threshold.
+// TotalLines returns the total number of content lines across all hunks,
+// used for the large-diff fallback threshold.
 func (d *ParsedDiff) TotalLines() int {
 	n := 0
 	for i := range d.Hunks {
@@ -82,57 +84,94 @@ func ParseDiff(repoRoot string, section Section, path string) (*ParsedDiff, erro
 		}
 	}
 
-	return parseDiff(stdout.String(), section, path), nil
+	hunks, added, deleted := parseDiffOutput(stdout.String())
+	return &ParsedDiff{Path: path, Section: section, Hunks: hunks, Added: added, Deleted: deleted}, nil
 }
 
-func parseDiff(raw string, section Section, path string) *ParsedDiff {
-	d := &ParsedDiff{Path: path, Section: section}
+// ParseCommitDiff runs git show for the given commit SHA and returns a ParsedDiff.
+// Pass a non-empty filePath to restrict to a single file within the commit.
+func ParseCommitDiff(repoRoot, sha, filePath string) (*ParsedDiff, error) {
+	args := []string{"show", "--format=", sha}
+	if filePath != "" {
+		args = append(args, "--", filePath)
+	}
 
+	cmd := exec.Command("git", args...)
+	cmd.Dir = repoRoot
+
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
+	if err := cmd.Run(); err != nil {
+		return nil, err
+	}
+
+	sha7 := sha
+	if len(sha7) > 7 {
+		sha7 = sha7[:7]
+	}
+	displayPath := sha7
+	if filePath != "" {
+		displayPath = filePath
+	}
+
+	hunks, added, deleted := parseDiffOutput(stdout.String())
+	return &ParsedDiff{
+		Path:    displayPath,
+		SHA:     sha7,
+		Section: SectionCommit,
+		Hunks:   hunks,
+		Added:   added,
+		Deleted: deleted,
+	}, nil
+}
+
+// parseDiffOutput parses raw unified diff text into hunks and line totals.
+// It tracks FilePath per hunk by watching +++ b/<path> lines, so it handles
+// both single-file and multi-file (git show) output.
+func parseDiffOutput(raw string) ([]Hunk, int, int) {
+	var hunks []Hunk
 	var cur *Hunk
+	var currentFile string
 	oldLine, newLine := 0, 0
+	added, deleted := 0, 0
 
 	for _, line := range strings.Split(raw, "\n") {
 		switch {
+		case strings.HasPrefix(line, "+++ b/"):
+			currentFile = line[6:]
 		case strings.HasPrefix(line, "@@ "):
 			if cur != nil {
-				d.Hunks = append(d.Hunks, *cur)
+				hunks = append(hunks, *cur)
 			}
 			oldLine, newLine = parseHunkStarts(line)
-			cur = &Hunk{Header: line, OldStart: oldLine, NewStart: newLine}
-
+			cur = &Hunk{FilePath: currentFile, Header: line, OldStart: oldLine, NewStart: newLine}
 		case cur == nil:
-			// still in the file header, skip
-
+			// still in file header
 		case strings.HasPrefix(line, "+"):
 			cur.Lines = append(cur.Lines, DiffLine{Kind: LineAdded, Content: line[1:], NewNum: newLine})
-			d.Added++
+			added++
 			newLine++
-
 		case strings.HasPrefix(line, "-"):
 			cur.Lines = append(cur.Lines, DiffLine{Kind: LineRemoved, Content: line[1:], OldNum: oldLine})
-			d.Deleted++
+			deleted++
 			oldLine++
-
 		case strings.HasPrefix(line, " "):
 			cur.Lines = append(cur.Lines, DiffLine{Kind: LineContext, Content: line[1:], OldNum: oldLine, NewNum: newLine})
 			oldLine++
 			newLine++
-
 		case strings.HasPrefix(line, `\ `):
 			// "\ No newline at end of file" — skip
-
 		}
 	}
 	if cur != nil {
-		d.Hunks = append(d.Hunks, *cur)
+		hunks = append(hunks, *cur)
 	}
-	return d
+	return hunks, added, deleted
 }
 
 // parseHunkStarts extracts the old and new starting line numbers from a @@ header.
 // Format: "@@ -oldStart[,oldCount] +newStart[,newCount] @@[ context]"
 func parseHunkStarts(line string) (oldStart, newStart int) {
-	// Fields: ["@@", "-a,b", "+c,d", "@@", ...]
 	for _, f := range strings.Fields(line) {
 		if strings.HasPrefix(f, "-") {
 			oldStart = parseFirstInt(f[1:])
