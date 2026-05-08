@@ -428,7 +428,12 @@ func (m Model) doDiff(r row, tags map[string]bool) (tea.Model, tea.Cmd) {
 		}
 		return m.doInlineDiff(r.file.Path, r.section)
 	case rowSectionHeader:
-		return m, execDiff(git.DiffCmd(m.repoRoot, r.section, ""))
+		switch r.section {
+		case git.SectionUnstaged, git.SectionStaged:
+			return m.doInlineDiff("", r.section)
+		default:
+			return m, execDiff(git.DiffCmd(m.repoRoot, r.section, ""))
+		}
 	case rowCommit:
 		return m.doInlineCommitDiff(r.commit.SHA, "")
 	case rowCommitFile:
@@ -441,6 +446,7 @@ func (m Model) doDiff(r row, tags map[string]bool) (tea.Model, tea.Cmd) {
 
 // doInlineDiff parses the diff for path/section and enters modeDiff, unless
 // the diff is too large in which case it falls back to the pager.
+// path may be empty to diff all files in the section.
 func (m Model) doInlineDiff(path string, section git.Section) (tea.Model, tea.Cmd) {
 	d, err := git.ParseDiff(m.repoRoot, section, path)
 	if err != nil {
@@ -453,6 +459,15 @@ func (m Model) doInlineDiff(path string, section git.Section) (tea.Model, tea.Cm
 	}
 	if d.TotalLines() > inlineDiffThreshold {
 		return m, execDiff(git.DiffCmd(m.repoRoot, section, path))
+	}
+	// For whole-section diffs the path is empty; use the section name as display label.
+	if d.Path == "" {
+		switch section {
+		case git.SectionUnstaged:
+			d.Path = "unstaged"
+		case git.SectionStaged:
+			d.Path = "staged"
+		}
 	}
 	m.diff = d
 	m.diffFlat = flatDiffLines(d)

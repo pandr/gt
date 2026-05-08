@@ -97,8 +97,11 @@ func (m Model) diffTitleBar() string {
 			branchIris.Render(branch) + " " +
 			fgFaint.Render("·") + " " +
 			fgSoft.Render("diff") + " " +
-			d.Path +
-			" " + fgFaint.Render("("+sectLabel+")")
+			d.Path
+		// Only append section label when it adds information (not when path IS the section name)
+		if sectLabel != "" && d.Path != sectLabel {
+			left += " " + fgFaint.Render("("+sectLabel+")")
+		}
 	}
 
 	// Hunk position: which hunk contains the cursor

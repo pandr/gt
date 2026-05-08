@@ -57,11 +57,22 @@ func ParseDiff(repoRoot string, section Section, path string) (*ParsedDiff, erro
 	var args []string
 	switch section {
 	case SectionUntracked:
+		if path == "" {
+			return nil, fmt.Errorf("path required for untracked diff")
+		}
 		args = []string{"diff", "--no-index", "/dev/null", path}
 	case SectionUnstaged:
-		args = []string{"diff", "--", path}
+		if path != "" {
+			args = []string{"diff", "--", path}
+		} else {
+			args = []string{"diff"}
+		}
 	case SectionStaged:
-		args = []string{"diff", "--staged", "--", path}
+		if path != "" {
+			args = []string{"diff", "--staged", "--", path}
+		} else {
+			args = []string{"diff", "--staged"}
+		}
 	default:
 		return nil, fmt.Errorf("unsupported section for inline diff: %v", section)
 	}
