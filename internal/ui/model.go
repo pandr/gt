@@ -124,9 +124,13 @@ type Model struct {
 	toast string // transient error message
 
 	// inline diff view state (modeDiff)
-	diff       *git.ParsedDiff
-	diffFlat   []diffViewLine // precomputed flat line list
-	diffCursor int            // index into diffFlat
+	diff         *git.ParsedDiff
+	diffFlat     []diffViewLine // precomputed flat line list
+	diffCursor   int            // index into diffFlat
+	diffSearch   string         // active search pattern (empty = none)
+	diffMatches  []int          // flat indices of matching lines
+	diffMatchIdx int            // current position in diffMatches (-1 = unset)
+	diffSearching bool          // true while the search input is open
 
 	width  int
 	height int

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -456,6 +457,9 @@ func (m Model) doInlineDiff(path string, section git.Section) (tea.Model, tea.Cm
 	m.diff = d
 	m.diffFlat = flatDiffLines(d)
 	m.diffCursor = 0
+	m.diffSearch = ""
+	m.diffMatches = nil
+	m.diffMatchIdx = -1
 	m.mode = modeDiff
 	return m, nil
 }
@@ -480,6 +484,9 @@ func (m Model) doInlineCommitDiff(sha, filePath string) (tea.Model, tea.Cmd) {
 	m.diff = d
 	m.diffFlat = flatDiffLines(d)
 	m.diffCursor = 0
+	m.diffSearch = ""
+	m.diffMatches = nil
+	m.diffMatchIdx = -1
 	m.mode = modeDiff
 	return m, nil
 }
@@ -890,11 +897,17 @@ func refresh(repoRoot string) tea.Cmd {
 
 // handleDiffKey handles keypresses in modeDiff.
 func (m Model) handleDiffKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.diffSearching {
+		return m.handleDiffSearchKey(msg)
+	}
 	switch msg.String() {
 	case "q", "esc":
 		m.mode = modeNormal
 		m.diff = nil
 		m.diffFlat = nil
+		m.diffSearch = ""
+		m.diffMatches = nil
+		m.diffMatchIdx = -1
 	case "j", "down":
 		if m.diffCursor < len(m.diffFlat)-1 {
 			m.diffCursor++
@@ -931,6 +944,22 @@ func (m Model) handleDiffKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.diffCursor = m.nextHunkStart(m.diffCursor)
 	case "[":
 		m.diffCursor = m.prevHunkStart(m.diffCursor)
+	case "/":
+		m.diffSearching = true
+		m.commitInput.Reset()
+		m.commitInput.Placeholder = "search…"
+		m.commitInput.Focus()
+		return m, nil
+	case "n":
+		if len(m.diffMatches) > 0 {
+			m.diffMatchIdx = (m.diffMatchIdx + 1) % len(m.diffMatches)
+			m.diffCursor = m.diffMatches[m.diffMatchIdx]
+		}
+	case "N":
+		if len(m.diffMatches) > 0 {
+			m.diffMatchIdx = (m.diffMatchIdx - 1 + len(m.diffMatches)) % len(m.diffMatches)
+			m.diffCursor = m.diffMatches[m.diffMatchIdx]
+		}
 	case "e":
 		if m.diff != nil {
 			return m, execEditFile(filepath.Join(m.repoRoot, m.diff.Path))
@@ -941,6 +970,61 @@ func (m Model) handleDiffKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return m, nil
+}
+
+// handleDiffSearchKey handles keypresses while the search input is open.
+func (m Model) handleDiffSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "enter":
+		pattern := m.commitInput.Value()
+		m.diffSearch = pattern
+		m.diffSearching = false
+		m.commitInput.Blur()
+		m.commitInput.Reset()
+		m.diffMatches = m.computeDiffMatches(pattern)
+		m.diffMatchIdx = -1
+		if len(m.diffMatches) > 0 {
+			// Jump to first match at or after current cursor
+			m.diffMatchIdx = 0
+			for i, idx := range m.diffMatches {
+				if idx >= m.diffCursor {
+					m.diffMatchIdx = i
+					break
+				}
+			}
+			m.diffCursor = m.diffMatches[m.diffMatchIdx]
+		}
+		return m, nil
+	case "esc":
+		m.diffSearching = false
+		m.commitInput.Blur()
+		m.commitInput.Reset()
+		return m, nil
+	default:
+		var cmd tea.Cmd
+		m.commitInput, cmd = m.commitInput.Update(msg)
+		return m, cmd
+	}
+}
+
+// computeDiffMatches returns the flat indices of all lines whose content
+// contains pattern (case-insensitive). Hunk/file headers are excluded.
+func (m Model) computeDiffMatches(pattern string) []int {
+	if pattern == "" || m.diff == nil {
+		return nil
+	}
+	lower := strings.ToLower(pattern)
+	var matches []int
+	for i, vl := range m.diffFlat {
+		if vl.lineIdx < 0 {
+			continue
+		}
+		content := m.diff.Hunks[vl.hunkIdx].Lines[vl.lineIdx].Content
+		if strings.Contains(strings.ToLower(content), lower) {
+			matches = append(matches, i)
+		}
+	}
+	return matches
 }
 
 // diffFallbackCmd returns a tea.Cmd that opens the current diff in the user's pager.

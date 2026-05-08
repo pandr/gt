@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/petera/gt/internal/git"
 )
 
@@ -48,7 +49,15 @@ func (m Model) diffView() string {
 	b.WriteString(fgFaint.Render(strings.Repeat("─", sepWidth)))
 	b.WriteString("\n")
 
-	b.WriteString(styleStatusBar.Render("j/k=line  space/ctrl+d/u=page  ]/[=hunk  e=editor  L=less  q=back"))
+	if m.diffSearching {
+		b.WriteString(styleStatusBar.Render("/") + " " + m.commitInput.View())
+	} else {
+		hints := "j/k=line  space/ctrl+d/u=page  ]/[=hunk  /=search  e=editor  L=less  q=back"
+		if m.diffSearch != "" {
+			hints = "n/N=match  " + hints
+		}
+		b.WriteString(styleStatusBar.Render(hints))
+	}
 
 	return b.String()
 }
@@ -168,11 +177,11 @@ func (m Model) renderDiffViewLine(i int) string {
 		dl := hunk.Lines[vl.lineIdx]
 		switch dl.Kind {
 		case git.LineAdded:
-			content = addStyle.Render(" +" + dl.Content)
+			content = addStyle.Render(" +") + highlightDiffContent(dl.Content, m.diffSearch, addStyle)
 		case git.LineRemoved:
-			content = delStyle.Render(" -" + dl.Content)
+			content = delStyle.Render(" -") + highlightDiffContent(dl.Content, m.diffSearch, delStyle)
 		default: // LineContext
-			content = "  " + dl.Content
+			content = "  " + highlightDiffContent(dl.Content, m.diffSearch, lipgloss.NewStyle())
 		}
 	}
 
@@ -181,4 +190,33 @@ func (m Model) renderDiffViewLine(i int) string {
 		return applyCursorBg(line, m.width)
 	}
 	return line
+}
+
+// highlightDiffContent renders content with the base style, injecting
+// searchHlStyle around every occurrence of pattern (case-insensitive).
+// If pattern is empty or not found, the content is rendered with base style only.
+func highlightDiffContent(content, pattern string, base lipgloss.Style) string {
+	if pattern == "" {
+		return base.Render(content)
+	}
+	lower := strings.ToLower(content)
+	lowerPat := strings.ToLower(pattern)
+	if !strings.Contains(lower, lowerPat) {
+		return base.Render(content)
+	}
+	var b strings.Builder
+	i := 0
+	for i < len(content) {
+		idx := strings.Index(lower[i:], lowerPat)
+		if idx < 0 {
+			b.WriteString(base.Render(content[i:]))
+			break
+		}
+		if idx > 0 {
+			b.WriteString(base.Render(content[i : i+idx]))
+		}
+		b.WriteString(searchHlStyle.Render(content[i+idx : i+idx+len(pattern)]))
+		i += idx + len(pattern)
+	}
+	return b.String()
 }

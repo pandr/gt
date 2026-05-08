@@ -29,6 +29,9 @@ var (
 	fgSoft  = lipgloss.NewStyle().Foreground(lipgloss.Color("#a39e8d")) // de-emphasized
 	fgFaint = lipgloss.NewStyle().Foreground(lipgloss.Color("#5b5849")) // hint bar, separators
 
+	// Search match highlight
+	searchHlStyle = lipgloss.NewStyle().Background(lipgloss.Color("#d6a96a")).Foreground(lipgloss.Color("#14141a"))
+
 	// Status bar chrome
 	styleStatusBar = lipgloss.NewStyle().Foreground(lipgloss.Color("#5b5849"))
 	styleToast     = lipgloss.NewStyle().Foreground(lipgloss.Color("#c87766")).Bold(true)
