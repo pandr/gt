@@ -1,0 +1,835 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>gt — TUI design</title>
+<link rel="stylesheet" href="styles.css" />
+<script src="deck-stage.js"></script>
+</head>
+<body>
+
+<deck-stage>
+
+<!-- ============================================================ 01 TITLE -->
+<section class="slide title" data-screen-label="01 Title">
+  <div class="title-inner">
+    <div class="title-left">
+      <div class="brand-mark">gt<span class="cursor-block"></span></div>
+      <div class="brand-tag">— design refinement, v0.1</div>
+    </div>
+    <div class="title-right">
+      <div class="brand-tag" style="margin-bottom:18px">A beautiful Unix instrument</div>
+      <h1 class="brand-title">Polishing gt for daily use.</h1>
+      <p class="brand-sub">Hierarchy, color, density &mdash; refined cell by cell. Plus an inline diff sketch and a stash that earns its keystroke.</p>
+      <div class="brand-meta">
+        <span>Repo</span><b>github.com/pandr/gt</b>
+        <span>Stack</span><b>Go · bubbletea · lipgloss</b>
+        <span>Aesthetic</span><b>Modern TUI, ASCII-flavored</b>
+        <span>Output</span><b>Implementation ideas</b>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 02 INDEX -->
+<section class="slide" data-screen-label="02 Index">
+  <div class="slide-head">
+    <span class="ix">02 / 12</span>
+    <span class="crumbs"><b>Index</b> &nbsp;·&nbsp; what's in this doc</span>
+    <span class="spacer"></span>
+    <span class="brand"><b>gt</b> · design refinement</span>
+  </div>
+  <div class="slide-stage" style="display:block">
+    <h2 class="stage-title">Index <span class="tag">12 slides</span></h2>
+    <p class="stage-sub">Three movements: tighten the overview, propose an inline diff, sketch a stash that fits gt's grammar. Each idea is sized to be implementable; nothing here breaks the existing model.</p>
+    <div class="toc-grid">
+      <div class="toc-item"><div class="num">01</div><div class="name">The current overview</div><div class="key">baseline</div><div class="desc">What gt looks like today, read carefully.</div></div>
+      <div class="toc-item"><div class="num">02</div><div class="name">Palette &amp; glyph kit</div><div class="key">design system</div><div class="desc">Two accents, three states. The token list.</div></div>
+      <div class="toc-item"><div class="num">03</div><div class="name">Overview, refined</div><div class="key">primary</div><div class="desc">Hierarchy via weight + box-drawing. Same density.</div></div>
+      <div class="toc-item"><div class="num">04</div><div class="name">Before / after</div><div class="key">comparison</div><div class="desc">Side-by-side. The same fixture, two treatments.</div></div>
+      <div class="toc-item"><div class="num">05</div><div class="name">Density variants</div><div class="key">explore</div><div class="desc">Tight · default · breathing.</div></div>
+      <div class="toc-item"><div class="num">06</div><div class="name">Cursor &amp; tag micro-decisions</div><div class="key">explore</div><div class="desc">Three takes on the cursor row.</div></div>
+      <div class="toc-item"><div class="num">07</div><div class="name">Inline diff: unified</div><div class="key">new</div><div class="desc">Stay in gt; preserve the cell grid.</div></div>
+      <div class="toc-item"><div class="num">08</div><div class="name">Inline diff: split</div><div class="key">new</div><div class="desc">Two columns, one row of context per change.</div></div>
+      <div class="toc-item"><div class="num">09</div><div class="name">Diff: design rationale</div><div class="key">why</div><div class="desc">Where inline beats <code>less</code>, and where it doesn't.</div></div>
+      <div class="toc-item"><div class="num">10</div><div class="name">Stash, mutt-style</div><div class="key">new feature</div><div class="desc">A fourth section, two new keys, no new modes.</div></div>
+      <div class="toc-item"><div class="num">11</div><div class="name">Stash: pop &amp; show</div><div class="key">new feature</div><div class="desc">What happens when you press <kbd>p</kbd>.</div></div>
+      <div class="toc-item"><div class="num">12</div><div class="name">Implementation notes</div><div class="key">handoff</div><div class="desc">For Claude Code: the diff to apply.</div></div>
+    </div>
+  </div>
+  <div class="slide-foot">
+    <span>Read in order or jump &mdash; each slide stands alone.</span>
+    <span class="spacer" style="flex:1"></span>
+    <span>j/k · ←/→</span>
+  </div>
+</section>
+
+<!-- ============================================================ 03 BASELINE -->
+<section class="slide" data-screen-label="03 Baseline">
+  <div class="slide-head">
+    <span class="ix">03 / 12</span>
+    <span class="crumbs"><b>Baseline</b> &nbsp;·&nbsp; gt today, transcribed faithfully</span>
+    <span class="spacer"></span>
+    <span class="brand"><b>gt</b> · design refinement</span>
+  </div>
+  <div class="slide-stage">
+    <h2 class="stage-title">The current overview <span class="tag">baseline</span></h2>
+    <p class="stage-sub">Reading what's actually there. The screen is already mutt-disciplined &mdash; dense, scannable, monochrome with three accent slots. The work is sharpening, not redrawing.</p>
+
+    <div class="term-shell" style="--term-cols: 92; --term-rows: 16">
+      <div class="term-titlebar">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="title">~/git/gt/gt — gt</span>
+      </div>
+      <div class="term-body">
+<span class="row"><span class="b fg-iris">On branch main</span></span>
+<span class="row cursor"><span class="b fg-amber">Untracked (2)</span></span>
+<span class="row">  <span class="fg-add">?</span> .gitignore</span>
+<span class="row">  <span class="fg-add">?</span> go.mod</span>
+<span class="row"><span class="b fg-amber">Unstaged (1)</span></span>
+<span class="row">  <span class="fg-mod">M</span> main.go</span>
+<span class="row"><span class="b fg-amber">Staged (1)</span></span>
+<span class="row">  <span class="fg-mod">M</span> README.md</span>
+<span class="row"><span class="b fg-amber">Recent commits</span></span>
+<span class="row">  <span class="fg-faint">cfdc578</span> <span class="b fg-amber">(HEAD → </span><span class="fg-iris">main</span><span class="b fg-amber">)</span> Refactor data pipeline</span>
+<span class="row">  <span class="fg-faint">4bc871d</span> Update dependencies</span>
+<span class="row">  <span class="fg-faint">a978566</span> Fix authentication bug</span>
+<span class="row">  <span class="fg-faint">8ecd59d</span> Add CI configuration</span>
+<span class="row">  <span class="fg-faint">c3a0f55</span> Initial commit</span>
+<span class="row"></span>
+<span class="row"><span class="fg-faint">c=commit  d=diff  s=stage  u=unstage  t=tag  ?=help  q=quit</span></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide-notes">
+    <div class="notes-block">
+      <h4>What's already right</h4>
+      <ul>
+        <li>Section headers bold &amp; warm, file rows neutral &mdash; correct hierarchy</li>
+        <li>Section counts in parens &mdash; mutt pattern, instantly readable</li>
+        <li>X/Y indicators (<code>?</code>/<code>M</code>/<code>A</code>/<code>D</code>) carry meaning by glyph, not just color</li>
+        <li>Context-aware hint bar at bottom &mdash; teaches the keymap</li>
+      </ul>
+    </div>
+    <div class="notes-block">
+      <h4>What I want to tighten</h4>
+      <ul>
+        <li>All four section headers are the <em>same</em> amber &mdash; the eye can't tell &ldquo;has work&rdquo; from &ldquo;empty&rdquo;</li>
+        <li>Cursor row spans the full terminal width even when content is short &mdash; reads as a bar, not a pin</li>
+        <li>No visible relationship between sections; they float in the void</li>
+        <li>HEAD ref is amber-bold which fights the section headers for attention</li>
+        <li>Indicator column has no internal alignment between sections</li>
+      </ul>
+    </div>
+    <div class="callout">
+      Goal: same density, sharper hierarchy, accents that earn their use. <em>Don't make it pretty &mdash; make it correct.</em>
+    </div>
+  </div>
+
+  <div class="slide-foot">
+    <div class="legend">
+      <span><i class="swatch" style="background:#d6a96a"></i> amber · headers, change</span>
+      <span><i class="swatch" style="background:#7fb8c4"></i> iris · branch, identity</span>
+      <span><i class="swatch" style="background:#94b87a"></i> moss · added</span>
+      <span><i class="swatch" style="background:#c87766"></i> terracotta · deleted</span>
+      <span><i class="swatch" style="background:#b491c8"></i> mauve · tagged</span>
+    </div>
+    <span class="spacer" style="flex:1"></span>
+    <span>96 cols · 14px/19px cell</span>
+  </div>
+</section>
+
+<!-- ============================================================ 04 PALETTE -->
+<section class="slide" data-screen-label="04 Palette">
+  <div class="slide-head">
+    <span class="ix">04 / 12</span>
+    <span class="crumbs"><b>Design system</b> &nbsp;·&nbsp; palette, glyphs, type</span>
+    <span class="spacer"></span>
+    <span class="brand"><b>gt</b> · design refinement</span>
+  </div>
+  <div class="slide-stage" style="display:block">
+    <h2 class="stage-title">Palette &amp; glyph kit <span class="tag">tokens</span></h2>
+    <p class="stage-sub">Two accents (iris, amber) plus three semantic states (add, mod, del) and one extra (tag). Everything else is luminance. Low chroma; nothing screams.</p>
+
+    <div class="palette-grid" style="margin-top: 22px">
+      <div class="swatch-card"><div class="chip" style="background:#14141a"></div><div class="meta"><b>term.bg</b><span>#14141a</span></div></div>
+      <div class="swatch-card"><div class="chip" style="background:#1a1a22"></div><div class="meta"><b>term.bg.soft</b><span>#1a1a22</span></div></div>
+      <div class="swatch-card"><div class="chip" style="background:#d8d4c7"></div><div class="meta"><b>term.fg</b><span>#d8d4c7</span></div></div>
+      <div class="swatch-card"><div class="chip" style="background:#a39e8d"></div><div class="meta"><b>term.fg.soft</b><span>#a39e8d</span></div></div>
+      <div class="swatch-card"><div class="chip" style="background:#5b5849"></div><div class="meta"><b>term.fg.faint</b><span>#5b5849</span></div></div>
+      <div class="swatch-card"><div class="chip" style="background:#7fb8c4"></div><div class="meta"><b>iris</b><span>#7fb8c4 · branch</span></div></div>
+      <div class="swatch-card"><div class="chip" style="background:#d6a96a"></div><div class="meta"><b>amber</b><span>#d6a96a · headers</span></div></div>
+      <div class="swatch-card"><div class="chip" style="background:#2a2a35"></div><div class="meta"><b>cursor.bg</b><span>#2a2a35</span></div></div>
+      <div class="swatch-card"><div class="chip" style="background:#94b87a"></div><div class="meta"><b>add</b><span>#94b87a · ?, A, +</span></div></div>
+      <div class="swatch-card"><div class="chip" style="background:#d6a96a"></div><div class="meta"><b>mod</b><span>#d6a96a · M, T</span></div></div>
+      <div class="swatch-card"><div class="chip" style="background:#c87766"></div><div class="meta"><b>del</b><span>#c87766 · D, &minus;</span></div></div>
+      <div class="swatch-card"><div class="chip" style="background:#b491c8"></div><div class="meta"><b>tag</b><span>#b491c8 · *</span></div></div>
+      <div class="swatch-card"><div class="chip" style="background:#4d7e8a"></div><div class="meta"><b>iris.dim</b><span>#4d7e8a</span></div></div>
+      <div class="swatch-card"><div class="chip" style="background:#8a6e44"></div><div class="meta"><b>amber.dim</b><span>#8a6e44</span></div></div>
+      <div class="swatch-card"><div class="chip" style="background:#34322b"></div><div class="meta"><b>fg.ghost</b><span>#34322b · rules</span></div></div>
+      <div class="swatch-card"><div class="chip" style="background:linear-gradient(45deg, #d8d4c7 50%, #14141a 50%)"></div><div class="meta"><b>contrast</b><span>fg/bg · 13.4:1</span></div></div>
+    </div>
+
+    <div class="glyph-grid" style="margin-top: 28px">
+      <div class="glyph-card"><div class="glyph fg-faint">▶</div><div class="name">collapsed</div><div class="desc">Directory or commit, closed.</div></div>
+      <div class="glyph-card"><div class="glyph fg-faint">▼</div><div class="name">expanded</div><div class="desc">Open. Pairs with ▶.</div></div>
+      <div class="glyph-card"><div class="glyph fg-tag">*</div><div class="name">tagged</div><div class="desc">Replaces leading column. Mauve.</div></div>
+      <div class="glyph-card"><div class="glyph fg-faint">·</div><div class="name">commit · file</div><div class="desc">Bullet for files inside an open commit.</div></div>
+      <div class="glyph-card"><div class="glyph fg-faint">┊</div><div class="name">section rule</div><div class="desc">Dotted vertical, gutter use only.</div></div>
+      <div class="glyph-card"><div class="glyph fg-iris">↑<span class="fg-faint">2</span> <span class="fg-iris-d">↓</span><span class="fg-faint">0</span></div><div class="name">ahead/behind</div><div class="desc">Fixed-width pair next to upstream.</div></div>
+    </div>
+  </div>
+  <div class="slide-foot">
+    <span>Contrast: fg/bg 13.4:1 · iris/bg 6.1:1 · amber/bg 7.2:1 &mdash; all WCAG AA at body size</span>
+    <span class="spacer" style="flex:1"></span>
+    <span>oklch family · constant chroma 0.06</span>
+  </div>
+</section>
+
+<!-- ============================================================ 05 OVERVIEW REFINED -->
+<section class="slide" data-screen-label="05 Overview refined">
+  <div class="slide-head">
+    <span class="ix">05 / 12</span>
+    <span class="crumbs"><b>Overview · refined</b> &nbsp;·&nbsp; the primary proposal</span>
+    <span class="spacer"></span>
+    <span class="brand"><b>gt</b> · design refinement</span>
+  </div>
+  <div class="slide-stage">
+    <h2 class="stage-title">Overview, refined <span class="tag">primary</span></h2>
+    <p class="stage-sub">Same density, six surgical changes. A continuous left rail anchors the screen; section headers earn their amber by signaling work-to-do; the cursor pins instead of bars; HEAD steps back so branch can step forward.</p>
+
+    <div class="term-shell" style="--term-cols: 92; --term-rows: 18">
+      <div class="term-titlebar">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="title">~/git/gt/gt — gt</span>
+      </div>
+      <div class="term-body">
+<span class="row"><span class="fg-faint">┊</span> <span class="b fg-iris">main</span><span class="fg-soft">  </span><span class="fg-faint">origin/main  </span><span class="fg-iris">↑</span><span class="fg-faint">2</span> <span class="fg-iris-d">↓</span><span class="fg-faint">0</span><span class="fg-faint">                                                       v0.1.0+a3f9</span></span>
+<span class="row cursor"><span class="fg-amber">┊</span> <span class="b fg-amber">Untracked</span> <span class="fg-faint">·</span> <span class="fg-soft">2</span></span>
+<span class="row"><span class="fg-amber-d">┊</span>   <span class="fg-add">?</span> .gitignore</span>
+<span class="row"><span class="fg-amber-d">┊</span>   <span class="fg-add">?</span> go.mod</span>
+<span class="row"><span class="fg-amber">┊</span> <span class="b fg-amber">Unstaged</span>  <span class="fg-faint">·</span> <span class="fg-soft">1</span>  <span class="fg-add">+12</span><span class="fg-faint">/</span><span class="fg-del">-3</span></span>
+<span class="row"><span class="fg-amber-d">┊</span>   <span class="fg-mod">M</span> main.go<span class="fg-faint">                                                       </span><span class="fg-add">+12</span><span class="fg-faint">/</span><span class="fg-del">-3</span></span>
+<span class="row"><span class="fg-amber">┊</span> <span class="b fg-amber">Staged</span>    <span class="fg-faint">·</span> <span class="fg-soft">1</span>  <span class="fg-add">+24</span><span class="fg-faint">/</span><span class="fg-del">-8</span></span>
+<span class="row"><span class="fg-amber-d">┊</span>   <span class="fg-mod">M</span> README.md<span class="fg-faint">                                                     </span><span class="fg-add">+24</span><span class="fg-faint">/</span><span class="fg-del">-8</span></span>
+<span class="row"><span class="fg-faint">┊</span> <span class="b fg-soft">Recent commits</span></span>
+<span class="row"><span class="fg-ghost">┊</span>   <span class="fg-faint">▶</span> <span class="fg-iris-d">cfdc578</span> <span class="fg-faint">  3m</span> Refactor data pipeline  <span class="fg-faint">(</span><span class="b fg-iris">main</span><span class="fg-faint">, </span><span class="fg-iris-d">origin/main</span><span class="fg-faint">)</span></span>
+<span class="row"><span class="fg-ghost">┊</span>   <span class="fg-faint">▶</span> <span class="fg-iris-d">4bc871d</span> <span class="fg-faint"> 30m</span> Update dependencies</span>
+<span class="row"><span class="fg-ghost">┊</span>   <span class="fg-faint">▶</span> <span class="fg-iris-d">a978566</span> <span class="fg-faint">  2h</span> Fix authentication bug</span>
+<span class="row"><span class="fg-soft">s</span><span class="fg-faint">=stage</span> <span class="fg-soft">t</span><span class="fg-faint">=tag</span> <span class="fg-soft">c</span><span class="fg-faint">=commit</span> <span class="fg-soft">d</span><span class="fg-faint">=diff</span><span class="fg-faint">                                          </span><span class="fg-soft">?</span><span class="fg-faint">=help</span> <span class="fg-soft">q</span><span class="fg-faint">=quit</span></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide-notes">
+    <div class="notes-block">
+      <h4>Six refinements</h4>
+      <ul>
+        <li><b>Left rail.</b> A 1-cell <code>┊</code> column ties the screen together. Bright on sections with work, dimmed when empty.</li>
+        <li><b>Header rhythm.</b> Counts as <code>· 2</code> after the name &mdash; lighter than parens, mutt-style.</li>
+        <li><b>Diff-stat on headers.</b> <code>+12 / -3</code> next to the section name &mdash; you see the size of the change before drilling in.</li>
+        <li><b>Right-aligned per-file stats.</b> Uses the empty space we already have.</li>
+        <li><b>"Recent commits" demoted.</b> Soft fg, not amber &mdash; it's reference, not action.</li>
+        <li><b>Commit row layout.</b> <code>▶ sha 3m title (refs)</code> &mdash; age in 4-cell field, refs trail.</li>
+      </ul>
+    </div>
+    <div class="notes-block">
+      <h4>What stayed</h4>
+      <ul>
+        <li>Every keystroke. The model.go contract is unchanged.</li>
+        <li>Section order. Untracked → Unstaged → Staged → Working tree → Log.</li>
+        <li>X/Y indicators. <code>?</code> <code>M</code> <code>A</code> <code>D</code> still carry the same colors.</li>
+      </ul>
+    </div>
+    <div class="callout">
+      The rail is doing real work: <em>it's the section attendance light.</em> Bright = there are files here. Ghost = empty section, still navigable. You can read the screen at a glance from across the room.
+    </div>
+  </div>
+
+  <div class="slide-foot">
+    <span>Cursor pins to content width &mdash; doesn't bleed across the terminal.</span>
+    <span class="spacer" style="flex:1"></span>
+    <span>diff vs baseline: 6 changes, 0 new keys</span>
+  </div>
+</section>
+
+<!-- ============================================================ 06 BEFORE / AFTER -->
+<section class="slide" data-screen-label="06 Before vs after">
+  <div class="slide-head">
+    <span class="ix">06 / 12</span>
+    <span class="crumbs"><b>Before / After</b> &nbsp;·&nbsp; same fixture, two treatments</span>
+    <span class="spacer"></span>
+    <span class="brand"><b>gt</b> · design refinement</span>
+  </div>
+  <div class="slide-stage">
+    <h2 class="stage-title">Before &amp; after <span class="tag">comparison</span></h2>
+    <p class="stage-sub">A more loaded fixture: tagged files across sections, working-tree open, expanded commit. Read both screens; the after should require one less saccade.</p>
+
+    <div class="compare-stage">
+      <div class="compare-card">
+        <div class="label"><b>before</b> · current</div>
+        <div class="term-shell" style="--term-cols: 70; --term-rows: 24; transform: scale(0.85)">
+          <div class="term-titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">gt</span></div>
+          <div class="term-body" style="font-size: 13px">
+<span class="row"><span class="b fg-iris">On branch feature/dashboard</span><span class="fg-faint">   origin/feature/...   ↑2 ↓0</span></span>
+<span class="row"></span>
+<span class="row"><span class="b fg-amber">Untracked (3)</span></span>
+<span class="row">  <span class="fg-add">?</span> scripts/bundle.sh</span>
+<span class="row">  <span class="fg-tag">*</span><span class="fg-add">?</span> TODO.md</span>
+<span class="row">  <span class="fg-faint">▶</span> tests/legacy/</span>
+<span class="row"><span class="b fg-amber">Unstaged (4)</span></span>
+<span class="row">  <span class="fg-mod">M</span> .gitignore</span>
+<span class="row">  <span class="fg-mod">M</span> README.md</span>
+<span class="row cursor"> *<span class="fg-mod">M</span> tests/index.json</span>
+<span class="row">  <span class="fg-mod">M</span> tests/foo.csproj</span>
+<span class="row"><span class="b fg-amber">Staged (0)</span></span>
+<span class="row"><span class="b fg-amber">Recent commits</span></span>
+<span class="row">  <span class="fg-faint">a1b2c3d</span> fix cache invalidation</span>
+<span class="row">  <span class="fg-faint">e4f5a6b</span> add info command</span>
+<span class="row">  <span class="fg-faint">7c8d9ef</span> rebase onto main</span>
+<span class="row">  <span class="fg-faint">2b3c4d5</span> wip: refactor</span>
+<span class="row"></span>
+<span class="row"></span>
+<span class="row"></span>
+<span class="row"></span>
+<span class="row"><span class="fg-tag">[2 tagged]</span>   <span class="fg-faint">d=diff s=stage r=restore t=tag c=commit ?=help</span></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="compare-card">
+        <div class="label"><b>after</b> · refined</div>
+        <div class="term-shell" style="--term-cols: 70; --term-rows: 24; transform: scale(0.85)">
+          <div class="term-titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">gt</span></div>
+          <div class="term-body" style="font-size: 13px">
+<span class="row"><span class="fg-faint">┊</span> <span class="b fg-iris">feature/dashboard</span><span class="fg-faint">  origin/…  </span><span class="fg-iris">↑</span><span class="fg-faint">2</span> <span class="fg-iris-d">↓</span><span class="fg-faint">0      </span><span class="fg-tag">2 tagged</span></span>
+<span class="row"><span class="fg-ghost">┊</span></span>
+<span class="row"><span class="fg-amber">┊</span> <span class="b fg-amber">Untracked</span> <span class="fg-faint">·</span> <span class="fg-soft">3</span></span>
+<span class="row"><span class="fg-amber-d">┊</span>   <span class="fg-add">?</span> scripts/bundle.sh</span>
+<span class="row"><span class="fg-amber-d">┊</span> <span class="fg-tag">*</span> <span class="fg-add">?</span> TODO.md</span>
+<span class="row"><span class="fg-amber-d">┊</span>   <span class="fg-faint">▶</span> tests/legacy/<span class="fg-ghost"> </span><span class="fg-faint">(7 files)</span></span>
+<span class="row"><span class="fg-ghost">┊</span></span>
+<span class="row"><span class="fg-amber">┊</span> <span class="b fg-amber">Unstaged</span>  <span class="fg-faint">·</span> <span class="fg-soft">4</span>  <span class="fg-add">+38</span><span class="fg-faint">/</span><span class="fg-del">-12</span></span>
+<span class="row"><span class="fg-amber-d">┊</span>   <span class="fg-mod">M</span> .gitignore<span class="fg-faint">              </span><span class="fg-add">+2</span><span class="fg-faint">/</span><span class="fg-del">-0</span></span>
+<span class="row"><span class="fg-amber-d">┊</span>   <span class="fg-mod">M</span> README.md<span class="fg-faint">               </span><span class="fg-add">+8</span><span class="fg-faint">/</span><span class="fg-del">-1</span></span>
+<span class="row cursor"><span class="fg-amber-d">┊</span> <span class="fg-tag">*</span> <span class="fg-mod">M</span> tests/index.json<span class="fg-faint">       </span><span class="fg-add">+24</span><span class="fg-faint">/</span><span class="fg-del">-9</span></span>
+<span class="row"><span class="fg-amber-d">┊</span>   <span class="fg-mod">M</span> tests/foo.csproj<span class="fg-faint">        </span><span class="fg-add">+4</span><span class="fg-faint">/</span><span class="fg-del">-2</span></span>
+<span class="row"><span class="fg-ghost">┊</span></span>
+<span class="row"><span class="fg-faint">┊</span> <span class="fg-soft">Staged</span>    <span class="fg-faint">· empty</span></span>
+<span class="row"><span class="fg-ghost">┊</span></span>
+<span class="row"><span class="fg-faint">┊</span> <span class="b fg-soft">Recent commits</span></span>
+<span class="row"><span class="fg-ghost">┊</span>   <span class="fg-faint">▶</span> <span class="fg-iris-d">a1b2c3d</span> <span class="fg-faint">  3m</span> fix cache invalidation</span>
+<span class="row"><span class="fg-ghost">┊</span>   <span class="fg-faint">▶</span> <span class="fg-iris-d">e4f5a6b</span> <span class="fg-faint"> 30m</span> add info command</span>
+<span class="row"><span class="fg-ghost">┊</span>   <span class="fg-faint">▶</span> <span class="fg-iris-d">7c8d9ef</span> <span class="fg-faint">  2h</span> rebase onto main</span>
+<span class="row"><span class="fg-ghost">┊</span></span>
+<span class="row"><span class="fg-faint">─────────────────────────────────────────────────────────</span></span>
+<span class="row"><span class="fg-soft">;s</span><span class="fg-faint">=stage·tagged</span> <span class="fg-soft">d</span><span class="fg-faint">=diff</span> <span class="fg-soft">s</span><span class="fg-faint">=stage</span> <span class="fg-soft">c</span><span class="fg-faint">=commit</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-foot">
+    <span>Both screens are exact char-by-char terminal renders. No tricks.</span>
+    <span class="spacer" style="flex:1"></span>
+    <span>see also: 05 (annotated)</span>
+  </div>
+</section>
+
+<!-- ============================================================ 07 INLINE DIFF -->
+<section class="slide" data-screen-label="07 Inline diff unified">
+  <div class="slide-head">
+    <span class="ix">07 / 12</span>
+    <span class="crumbs"><b>Inline diff</b> &nbsp;·&nbsp; unified, in-process</span>
+    <span class="spacer"></span>
+    <span class="brand"><b>gt</b> · design refinement</span>
+  </div>
+  <div class="slide-stage">
+    <h2 class="stage-title">Inline diff &mdash; unified <span class="tag">new</span></h2>
+    <p class="stage-sub">Press <kbd>d</kbd>, the diff opens <em>in</em> gt instead of shelling to <code>less</code>. Same cell grid, same keys, navigation by hunk. <kbd>q</kbd> returns. Falls back to <code>less</code> for very long diffs (configurable).</p>
+
+    <div class="term-shell" style="--term-cols: 100; --term-rows: 25">
+      <div class="term-titlebar">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="title">gt — diff main.go (unstaged)</span>
+      </div>
+      <div class="term-body">
+<span class="row"><span class="fg-faint">┊</span> <span class="b fg-iris">diff</span> <span class="fg-soft">main.go</span> <span class="fg-faint">·</span> <span class="fg-mod">M</span> <span class="fg-faint">unstaged</span><span class="fg-faint">                              </span><span class="fg-add">+12</span><span class="fg-faint">/</span><span class="fg-del">-3</span><span class="fg-faint">   hunk </span><span class="fg-soft">2</span><span class="fg-faint">/</span><span class="fg-soft">3</span></span>
+<span class="row"><span class="fg-ghost">┊</span></span>
+<span class="row"><span class="fg-faint">┊</span> <span class="fg-iris-d">@@ -42,7 +42,12 @@</span> <span class="fg-faint">func (m *Model) refresh() error {</span></span>
+<span class="row"><span class="fg-ghost">┊</span> <span class="fg-faint">  42</span> <span class="fg-faint">  </span> <span class="fg-faint">    if err := m.loadStatus(); err != nil {</span></span>
+<span class="row"><span class="fg-ghost">┊</span> <span class="fg-faint">  43</span> <span class="fg-faint">  </span> <span class="fg-faint">        return fmt.Errorf("status: %w", err)</span></span>
+<span class="row"><span class="fg-ghost">┊</span> <span class="fg-faint">  44</span> <span class="fg-faint">  </span> <span class="fg-faint">    }</span></span>
+<span class="row diff-del-bg"><span class="fg-faint">┊</span> <span class="fg-faint">  45</span> <span class="fg-del">- </span> <span class="fg-del">    m.log = m.loadLog(50)</span></span>
+<span class="row diff-del-bg"><span class="fg-faint">┊</span> <span class="fg-faint">  46</span> <span class="fg-del">- </span> <span class="fg-del">    return nil</span></span>
+<span class="row diff-del-bg"><span class="fg-faint">┊</span> <span class="fg-faint">  47</span> <span class="fg-del">- </span> <span class="fg-del">}</span></span>
+<span class="row diff-add-bg"><span class="fg-faint">┊</span> <span class="fg-faint">    </span> <span class="fg-add">+ </span> <span class="fg-add">    log, err := m.loadLog(50)</span></span>
+<span class="row diff-add-bg"><span class="fg-faint">┊</span> <span class="fg-faint">    </span> <span class="fg-add">+ </span> <span class="fg-add">    if err != nil {</span></span>
+<span class="row cursor diff-add-bg-strong"><span class="fg-faint">┊</span> <span class="fg-faint">    </span> <span class="fg-add">+ </span> <span class="fg-add">        return fmt.Errorf("log: %w", err)</span></span>
+<span class="row diff-add-bg"><span class="fg-faint">┊</span> <span class="fg-faint">    </span> <span class="fg-add">+ </span> <span class="fg-add">    }</span></span>
+<span class="row diff-add-bg"><span class="fg-faint">┊</span> <span class="fg-faint">    </span> <span class="fg-add">+ </span> <span class="fg-add">    m.log = log</span></span>
+<span class="row diff-add-bg"><span class="fg-faint">┊</span> <span class="fg-faint">    </span> <span class="fg-add">+ </span> <span class="fg-add">    m.lastRefresh = time.Now()</span></span>
+<span class="row diff-add-bg"><span class="fg-faint">┊</span> <span class="fg-faint">    </span> <span class="fg-add">+ </span> <span class="fg-add">    return nil</span></span>
+<span class="row diff-add-bg"><span class="fg-faint">┊</span> <span class="fg-faint">    </span> <span class="fg-add">+ </span> <span class="fg-add">}</span></span>
+<span class="row"><span class="fg-ghost">┊</span> <span class="fg-faint">  48</span> <span class="fg-faint">  </span> <span class="fg-faint"></span></span>
+<span class="row"><span class="fg-ghost">┊</span> <span class="fg-faint">  49</span> <span class="fg-faint">  </span> <span class="fg-faint">// loadStatus runs git status --porcelain=v2 and parses.</span></span>
+<span class="row"><span class="fg-ghost">┊</span></span>
+<span class="row"><span class="fg-faint">┊</span> <span class="fg-iris-d">@@ -78,3 +83,8 @@</span> <span class="fg-faint">type Status struct {</span></span>
+<span class="row"><span class="fg-ghost">┊</span> <span class="fg-faint">  78</span> <span class="fg-faint">  </span> <span class="fg-faint">    Untracked []FileEntry</span></span>
+<span class="row"><span class="fg-ghost">┊</span> <span class="fg-faint">  79</span> <span class="fg-faint">  </span> <span class="fg-faint">    Unstaged  []FileEntry</span></span>
+<span class="row"><span class="fg-ghost">┊</span> <span class="fg-faint">  80</span> <span class="fg-faint">  </span> <span class="fg-faint">    Staged    []FileEntry</span></span>
+<span class="row diff-add-bg"><span class="fg-faint">┊</span> <span class="fg-faint">    </span> <span class="fg-add">+ </span> <span class="fg-add">    Branch    string</span></span>
+<span class="row diff-add-bg"><span class="fg-faint">┊</span> <span class="fg-faint">    </span> <span class="fg-add">+ </span> <span class="fg-add">    Upstream  string</span></span>
+<span class="row"><span class="fg-ghost">┊</span></span>
+<span class="row"><span class="fg-faint">─────────────────────────────────────────────────────────────────────────────────────────────────────</span></span>
+<span class="row"><span class="fg-soft">j/k</span><span class="fg-faint">=line</span> <span class="fg-soft">]/[</span><span class="fg-faint">=hunk</span> <span class="fg-soft">s</span><span class="fg-faint">=stage·hunk</span> <span class="fg-soft">v</span><span class="fg-faint">=split</span> <span class="fg-soft">e</span><span class="fg-faint">=editor</span> <span class="fg-soft">L</span><span class="fg-faint">=less</span><span class="fg-faint">                </span><span class="fg-soft">q</span><span class="fg-faint">=back</span></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide-notes">
+    <div class="notes-block">
+      <h4>Anatomy</h4>
+      <ul>
+        <li><b>Header line</b> identifies file + section + diff stat + hunk position. Same rail as overview.</li>
+        <li><b>Old/new line numbers</b> as two 4-cell columns &mdash; stays aligned even with 4-digit lines.</li>
+        <li><b>Sign column</b> (<code>+</code>/<code>-</code>/<code>&nbsp;</code>) is the one piece carrying color.</li>
+        <li><b>Soft tinted background</b> on changed rows &mdash; 10% alpha; cursor row goes to 18%. Color isn't doing the heavy lifting.</li>
+        <li><b>Hunk separator</b> is the existing rail glyph at <code>fg-ghost</code> luminance &mdash; structural, near-invisible.</li>
+      </ul>
+    </div>
+    <div class="notes-block">
+      <h4>New keys (small additions)</h4>
+      <ul>
+        <li><kbd>]</kbd> / <kbd>[</kbd> jump to next/prev hunk</li>
+        <li><kbd>s</kbd> here stages just <em>this hunk</em> &mdash; the long-deferred <code>git add -p</code> entry point</li>
+        <li><kbd>v</kbd> toggles split (next slide)</li>
+        <li><kbd>L</kbd> hands off to <code>$PAGER</code> if you want the full <code>less</code> experience</li>
+      </ul>
+    </div>
+    <div class="callout">
+      The diff doesn't replace <code>less</code>; it makes the <em>most common</em> diff (one file, a few hunks) feel native. <em>Long diffs still belong in the pager.</em>
+    </div>
+  </div>
+
+  <div class="slide-foot">
+    <span>Implementation: parse <code>git diff --no-color -U3</code> output. ~150 lines.</span>
+    <span class="spacer" style="flex:1"></span>
+    <span>fallback threshold: configurable (default 1000 lines)</span>
+  </div>
+</section>
+
+<!-- ============================================================ 08 SPLIT DIFF -->
+<section class="slide" data-screen-label="08 Inline diff split">
+  <div class="slide-head">
+    <span class="ix">08 / 12</span>
+    <span class="crumbs"><b>Inline diff</b> &nbsp;·&nbsp; split &mdash; same data, parallel</span>
+    <span class="spacer"></span>
+    <span class="brand"><b>gt</b> · design refinement</span>
+  </div>
+  <div class="slide-stage">
+    <h2 class="stage-title">Inline diff &mdash; split <span class="tag">v toggles</span></h2>
+    <p class="stage-sub">Same hunk, two columns. Old left, new right. The vertical box-drawing rule between them is the only chrome. Press <kbd>v</kbd> in unified to switch &mdash; setting persists per-session.</p>
+
+    <div class="term-shell" style="--term-cols: 110; --term-rows: 24">
+      <div class="term-titlebar">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="title">gt — diff main.go · split</span>
+      </div>
+      <div class="term-body" style="font-size: 13.5px">
+<span class="row"><span class="fg-faint">┊</span> <span class="b fg-iris">diff</span> <span class="fg-soft">main.go</span> <span class="fg-faint">·</span> <span class="fg-mod">M</span> <span class="fg-faint">unstaged</span> <span class="fg-faint">·</span> <span class="fg-soft">split</span><span class="fg-faint">                                  </span><span class="fg-add">+12</span><span class="fg-faint">/</span><span class="fg-del">-3</span><span class="fg-faint">   hunk </span><span class="fg-soft">2</span><span class="fg-faint">/</span><span class="fg-soft">3</span></span>
+<span class="row"><span class="fg-ghost">┊</span></span>
+<span class="row"><span class="fg-faint">┊</span> <span class="fg-iris-d">@@ -42,7 +42,12 @@</span> <span class="fg-faint">func (m *Model) refresh() error {</span></span>
+<span class="row"><span class="fg-ghost">┊</span> <span class="fg-faint">42</span> <span class="fg-faint">    if err := m.loadStatus(); err != nil {</span><span class="fg-ghost">     │</span> <span class="fg-faint">42</span> <span class="fg-faint">    if err := m.loadStatus(); err != nil {</span></span>
+<span class="row"><span class="fg-ghost">┊</span> <span class="fg-faint">43</span> <span class="fg-faint">        return fmt.Errorf("status: %w", err)</span><span class="fg-ghost">  │</span> <span class="fg-faint">43</span> <span class="fg-faint">        return fmt.Errorf("status: %w", err)</span></span>
+<span class="row"><span class="fg-ghost">┊</span> <span class="fg-faint">44</span> <span class="fg-faint">    }</span><span class="fg-faint">                                       </span><span class="fg-ghost">│</span> <span class="fg-faint">44</span> <span class="fg-faint">    }</span></span>
+<span class="row diff-del-bg"><span class="fg-faint">┊</span> <span class="fg-faint">45</span> <span class="fg-del">    m.log = m.loadLog(50)</span><span class="fg-faint">                       </span><span class="fg-ghost">│</span> <span class="fg-faint">45</span> <span class="fg-add">    log, err := m.loadLog(50)</span></span>
+<span class="row diff-del-bg"><span class="fg-faint">┊</span> <span class="fg-faint">46</span> <span class="fg-del">    return nil</span><span class="fg-faint">                                  </span><span class="fg-ghost">│</span> <span class="fg-faint">46</span> <span class="fg-add">    if err != nil {</span></span>
+<span class="row cursor diff-add-bg-strong"><span class="fg-faint">┊</span> <span class="fg-faint">47</span> <span class="fg-del">}</span><span class="fg-faint">                                           </span><span class="fg-ghost">│</span> <span class="fg-faint">47</span> <span class="fg-add">        return fmt.Errorf("log: %w", err)</span></span>
+<span class="row diff-add-bg"><span class="fg-faint">┊</span> <span class="fg-faint">  </span> <span class="fg-faint">                                        </span><span class="fg-ghost">│</span> <span class="fg-faint">48</span> <span class="fg-add">    }</span></span>
+<span class="row diff-add-bg"><span class="fg-faint">┊</span> <span class="fg-faint">  </span> <span class="fg-faint">                                        </span><span class="fg-ghost">│</span> <span class="fg-faint">49</span> <span class="fg-add">    m.log = log</span></span>
+<span class="row diff-add-bg"><span class="fg-faint">┊</span> <span class="fg-faint">  </span> <span class="fg-faint">                                        </span><span class="fg-ghost">│</span> <span class="fg-faint">50</span> <span class="fg-add">    m.lastRefresh = time.Now()</span></span>
+<span class="row diff-add-bg"><span class="fg-faint">┊</span> <span class="fg-faint">  </span> <span class="fg-faint">                                        </span><span class="fg-ghost">│</span> <span class="fg-faint">51</span> <span class="fg-add">    return nil</span></span>
+<span class="row diff-add-bg"><span class="fg-faint">┊</span> <span class="fg-faint">  </span> <span class="fg-faint">                                        </span><span class="fg-ghost">│</span> <span class="fg-faint">52</span> <span class="fg-add">}</span></span>
+<span class="row"><span class="fg-ghost">┊</span> <span class="fg-faint">48</span> <span class="fg-faint"></span><span class="fg-faint">                                        </span><span class="fg-ghost">│</span> <span class="fg-faint">53</span> <span class="fg-faint"></span></span>
+<span class="row"><span class="fg-ghost">┊</span> <span class="fg-faint">49</span> <span class="fg-faint">// loadStatus runs git status --porcelain=v2.</span><span class="fg-ghost">  │</span> <span class="fg-faint">54</span> <span class="fg-faint">// loadStatus runs git status --porcelain=v2.</span></span>
+<span class="row"><span class="fg-ghost">┊</span></span>
+<span class="row"><span class="fg-faint">┊</span> <span class="fg-iris-d">@@ -78,3 +83,8 @@</span> <span class="fg-faint">type Status struct {</span></span>
+<span class="row"><span class="fg-ghost">┊</span> <span class="fg-faint">78</span> <span class="fg-faint">    Untracked []FileEntry</span><span class="fg-faint">                       </span><span class="fg-ghost">│</span> <span class="fg-faint">83</span> <span class="fg-faint">    Untracked []FileEntry</span></span>
+<span class="row"><span class="fg-ghost">┊</span> <span class="fg-faint">79</span> <span class="fg-faint">    Unstaged  []FileEntry</span><span class="fg-faint">                       </span><span class="fg-ghost">│</span> <span class="fg-faint">84</span> <span class="fg-faint">    Unstaged  []FileEntry</span></span>
+<span class="row"><span class="fg-ghost">┊</span> <span class="fg-faint">80</span> <span class="fg-faint">    Staged    []FileEntry</span><span class="fg-faint">                       </span><span class="fg-ghost">│</span> <span class="fg-faint">85</span> <span class="fg-faint">    Staged    []FileEntry</span></span>
+<span class="row diff-add-bg"><span class="fg-faint">┊</span> <span class="fg-faint">  </span> <span class="fg-faint">                                        </span><span class="fg-ghost">│</span> <span class="fg-faint">86</span> <span class="fg-add">    Branch    string</span></span>
+<span class="row diff-add-bg"><span class="fg-faint">┊</span> <span class="fg-faint">  </span> <span class="fg-faint">                                        </span><span class="fg-ghost">│</span> <span class="fg-faint">87</span> <span class="fg-add">    Upstream  string</span></span>
+<span class="row"><span class="fg-ghost">┊</span></span>
+<span class="row"><span class="fg-faint">─────────────────────────────────────────────────────────────────────────────────────────────────────────────────</span></span>
+<span class="row"><span class="fg-soft">j/k</span><span class="fg-faint">=line</span> <span class="fg-soft">]/[</span><span class="fg-faint">=hunk</span> <span class="fg-soft">s</span><span class="fg-faint">=stage·hunk</span> <span class="fg-soft">v</span><span class="fg-faint">=unified</span> <span class="fg-soft">L</span><span class="fg-faint">=less</span><span class="fg-faint">                                                </span><span class="fg-soft">q</span><span class="fg-faint">=back</span></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide-notes">
+    <div class="notes-block">
+      <h4>When to prefer split</h4>
+      <ul>
+        <li>Refactors where lines move &mdash; alignment is much faster to read</li>
+        <li>Wide enough terminal (≥120 cols); auto-falls-back to unified below 100</li>
+        <li>You're in a code-review mood, not a stage-and-go mood</li>
+      </ul>
+    </div>
+    <div class="notes-block">
+      <h4>Implementation note</h4>
+      <ul>
+        <li>Server-side line pairing: walk the unified diff, assign each <code>-</code>/<code>+</code> pair the same row index where possible; bare <code>-</code> or <code>+</code> get an empty cell on the other side.</li>
+        <li>The vertical <code>│</code> rail is at fg-ghost luminance; it disappears when you stop looking at it &mdash; structural, not decorative.</li>
+        <li>Cursor highlight applies to <em>both columns</em> of the same logical row.</li>
+      </ul>
+    </div>
+    <div class="callout">
+      <em>The split is one pixel of CSS apart from the unified.</em> Same model, same parser, same keys. <kbd>v</kbd> toggles. That's the whole feature.
+    </div>
+  </div>
+
+  <div class="slide-foot">
+    <span>Both modes route hunk-stage through the same plumbing.</span>
+    <span class="spacer" style="flex:1"></span>
+    <span>≥120 cols recommended for split</span>
+  </div>
+</section>
+
+<!-- ============================================================ 09 STASH -->
+<section class="slide" data-screen-label="09 Stash">
+  <div class="slide-head">
+    <span class="ix">09 / 12</span>
+    <span class="crumbs"><b>Stash</b> &nbsp;·&nbsp; a fourth section, two new keys</span>
+    <span class="spacer"></span>
+    <span class="brand"><b>gt</b> · design refinement</span>
+  </div>
+  <div class="slide-stage">
+    <h2 class="stage-title">Stash, mutt-style <span class="tag">new feature</span></h2>
+    <p class="stage-sub">Stash isn't a separate screen &mdash; it's a fourth section, sitting between Staged and Working tree. Empty by default; appears when you have stashes. Cursor moves through them like any other row.</p>
+
+    <div class="term-shell" style="--term-cols: 96; --term-rows: 25">
+      <div class="term-titlebar">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="title">~/git/gt/gt — gt</span>
+      </div>
+      <div class="term-body">
+<span class="row"><span class="fg-faint">┊</span> <span class="b fg-iris">main</span><span class="fg-faint">  origin/main  </span><span class="fg-iris">↑</span><span class="fg-faint">2</span> <span class="fg-iris-d">↓</span><span class="fg-faint">0</span></span>
+<span class="row"><span class="fg-ghost">┊</span></span>
+<span class="row"><span class="fg-amber">┊</span> <span class="b fg-amber">Untracked</span> <span class="fg-faint">·</span> <span class="fg-soft">2</span></span>
+<span class="row"><span class="fg-amber-d">┊</span>   <span class="fg-add">?</span> .gitignore</span>
+<span class="row"><span class="fg-amber-d">┊</span>   <span class="fg-add">?</span> go.mod</span>
+<span class="row"><span class="fg-ghost">┊</span></span>
+<span class="row"><span class="fg-amber">┊</span> <span class="b fg-amber">Unstaged</span>  <span class="fg-faint">·</span> <span class="fg-soft">1</span>  <span class="fg-add">+12</span><span class="fg-faint">/</span><span class="fg-del">-3</span></span>
+<span class="row"><span class="fg-amber-d">┊</span>   <span class="fg-mod">M</span> main.go<span class="fg-faint">                                                  </span><span class="fg-add">+12</span><span class="fg-faint">/</span><span class="fg-del">-3</span></span>
+<span class="row"><span class="fg-ghost">┊</span></span>
+<span class="row"><span class="fg-amber">┊</span> <span class="b fg-amber">Staged</span>    <span class="fg-faint">·</span> <span class="fg-soft">1</span>  <span class="fg-add">+24</span><span class="fg-faint">/</span><span class="fg-del">-8</span></span>
+<span class="row"><span class="fg-amber-d">┊</span>   <span class="fg-mod">M</span> README.md<span class="fg-faint">                                                </span><span class="fg-add">+24</span><span class="fg-faint">/</span><span class="fg-del">-8</span></span>
+<span class="row"><span class="fg-ghost">┊</span></span>
+<span class="row"><span class="fg-tag">┊</span> <span class="b fg-tag">Stash</span>     <span class="fg-faint">·</span> <span class="fg-soft">3</span></span>
+<span class="row cursor"><span class="fg-tag">┊</span>   <span class="fg-faint">▶</span> <span class="fg-tag">stash@{0}</span> <span class="fg-faint">  3h</span> WIP on main: tweak commit prompt</span>
+<span class="row"><span class="fg-tag">┊</span>   <span class="fg-faint">▶</span> <span class="fg-tag">stash@{1}</span> <span class="fg-faint">  2d</span> debug logging in update.go</span>
+<span class="row"><span class="fg-tag">┊</span>   <span class="fg-faint">▶</span> <span class="fg-tag">stash@{2}</span> <span class="fg-faint">  6d</span> experiment: hunk-level staging</span>
+<span class="row"><span class="fg-ghost">┊</span></span>
+<span class="row"><span class="fg-faint">┊</span> <span class="b fg-soft">Recent commits</span></span>
+<span class="row"><span class="fg-ghost">┊</span>   <span class="fg-faint">▶</span> <span class="fg-iris-d">cfdc578</span> <span class="fg-faint">  3m</span> Refactor data pipeline  <span class="fg-faint">(</span><span class="b fg-iris">main</span><span class="fg-faint">)</span></span>
+<span class="row"><span class="fg-ghost">┊</span>   <span class="fg-faint">▶</span> <span class="fg-iris-d">4bc871d</span> <span class="fg-faint"> 30m</span> Update dependencies</span>
+<span class="row"><span class="fg-ghost">┊</span>   <span class="fg-faint">▶</span> <span class="fg-iris-d">a978566</span> <span class="fg-faint">  2h</span> Fix authentication bug</span>
+<span class="row"><span class="fg-ghost">┊</span></span>
+<span class="row"><span class="fg-ghost">┊</span></span>
+<span class="row"><span class="fg-faint">────────────────────────────────────────────────────────────────────────────────────────────────</span></span>
+<span class="row"><span class="fg-soft">d</span><span class="fg-faint">=show</span> <span class="fg-soft">p</span><span class="fg-faint">=pop</span> <span class="fg-soft">a</span><span class="fg-faint">=apply</span> <span class="fg-soft">D</span><span class="fg-faint">=drop</span> <span class="fg-soft">l</span><span class="fg-faint">=expand</span> <span class="fg-soft">S</span><span class="fg-faint">=stash·new</span><span class="fg-faint">                  </span><span class="fg-soft">?</span><span class="fg-faint">=help</span> <span class="fg-soft">q</span><span class="fg-faint">=quit</span></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide-notes">
+    <div class="notes-block">
+      <h4>Why a section, not a screen</h4>
+      <ul>
+        <li>Stash is just <em>state</em>, like Untracked and Staged. It belongs in the inventory.</li>
+        <li>You see it without asking. The first time you stash you'll find it without reading docs.</li>
+        <li>Empty stash = section hidden &mdash; same rule as &ldquo;Staged · empty&rdquo;.</li>
+      </ul>
+    </div>
+    <div class="notes-block">
+      <h4>The grammar holds</h4>
+      <ul>
+        <li><kbd>l</kbd> on a stash row expands its file list (just like a commit)</li>
+        <li><kbd>d</kbd> diffs the stash (just like a commit)</li>
+        <li><kbd>t</kbd> tags it &mdash; <kbd>;d</kbd> diffs all tagged stashes back-to-back</li>
+        <li>Mauve <code>┊</code> rail visually separates &ldquo;parked work&rdquo; from active changes</li>
+      </ul>
+    </div>
+    <div class="notes-block">
+      <h4>Two new keys</h4>
+      <ul>
+        <li><kbd>S</kbd> &mdash; <em>stash all</em>. Opens a one-line message prompt, same UX as <kbd>c</kbd>. Empty message = no message.</li>
+        <li><kbd>p</kbd> &mdash; pop. Only valid on a stash row. Asks <kbd>y</kbd>/<kbd>n</kbd> if stash isn't on current branch.</li>
+        <li><kbd>a</kbd> apply, <kbd>D</kbd> drop &mdash; only on stash rows; out of the way otherwise.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="slide-foot">
+    <span>Mauve rail = the same color as the tag glyph &mdash; reinforces &ldquo;set aside&rdquo; semantics.</span>
+    <span class="spacer" style="flex:1"></span>
+    <span>git stash list / show / pop / apply / drop / push -m</span>
+  </div>
+</section>
+
+<!-- ============================================================ 10 STASH POP -->
+<section class="slide" data-screen-label="10 Stash pop expanded">
+  <div class="slide-head">
+    <span class="ix">10 / 12</span>
+    <span class="crumbs"><b>Stash</b> &nbsp;·&nbsp; expanded · pop confirm</span>
+    <span class="spacer"></span>
+    <span class="brand"><b>gt</b> · design refinement</span>
+  </div>
+  <div class="slide-stage">
+    <h2 class="stage-title">Expanding a stash, popping it <span class="tag">interaction</span></h2>
+    <p class="stage-sub"><kbd>l</kbd> on a stash row reveals its files (with diff stats). <kbd>p</kbd> pops &mdash; if conflicts are possible, gt asks first. The mauve rail dims as the stash drains.</p>
+
+    <div class="compare-stage">
+      <div class="compare-card">
+        <div class="label"><b>1.</b> stash expanded</div>
+        <div class="term-shell" style="--term-cols: 78; --term-rows: 22; transform: scale(0.85)">
+          <div class="term-titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">gt</span></div>
+          <div class="term-body" style="font-size: 13px">
+<span class="row"><span class="fg-faint">┊</span> <span class="b fg-iris">main</span><span class="fg-faint">  origin/main  </span><span class="fg-iris">↑</span><span class="fg-faint">2</span> <span class="fg-iris-d">↓</span><span class="fg-faint">0</span></span>
+<span class="row"><span class="fg-ghost">┊</span></span>
+<span class="row"><span class="fg-amber">┊</span> <span class="b fg-amber">Unstaged</span>  <span class="fg-faint">·</span> <span class="fg-soft">1</span>  <span class="fg-add">+12</span><span class="fg-faint">/</span><span class="fg-del">-3</span></span>
+<span class="row"><span class="fg-amber-d">┊</span>   <span class="fg-mod">M</span> main.go<span class="fg-faint">                       </span><span class="fg-add">+12</span><span class="fg-faint">/</span><span class="fg-del">-3</span></span>
+<span class="row"><span class="fg-ghost">┊</span></span>
+<span class="row"><span class="fg-tag">┊</span> <span class="b fg-tag">Stash</span>     <span class="fg-faint">·</span> <span class="fg-soft">3</span></span>
+<span class="row cursor"><span class="fg-tag">┊</span>   <span class="fg-faint">▼</span> <span class="fg-tag">stash@{0}</span> <span class="fg-faint">  3h</span> WIP: tweak commit</span>
+<span class="row"><span class="fg-tag">┊</span>     <span class="fg-faint">·</span> internal/ui/update.go<span class="fg-faint">       </span><span class="fg-add">+8</span><span class="fg-faint">/</span><span class="fg-del">-2</span></span>
+<span class="row"><span class="fg-tag">┊</span>     <span class="fg-faint">·</span> internal/ui/view.go<span class="fg-faint">         </span><span class="fg-add">+4</span><span class="fg-faint">/</span><span class="fg-del">-1</span></span>
+<span class="row"><span class="fg-tag">┊</span>   <span class="fg-faint">▶</span> <span class="fg-tag">stash@{1}</span> <span class="fg-faint">  2d</span> debug logging</span>
+<span class="row"><span class="fg-tag">┊</span>   <span class="fg-faint">▶</span> <span class="fg-tag">stash@{2}</span> <span class="fg-faint">  6d</span> experiment: hunks</span>
+<span class="row"><span class="fg-ghost">┊</span></span>
+<span class="row"><span class="fg-faint">┊</span> <span class="b fg-soft">Recent commits</span></span>
+<span class="row"><span class="fg-ghost">┊</span>   <span class="fg-faint">▶</span> <span class="fg-iris-d">cfdc578</span> <span class="fg-faint">  3m</span> Refactor pipeline</span>
+<span class="row"><span class="fg-ghost">┊</span>   <span class="fg-faint">▶</span> <span class="fg-iris-d">4bc871d</span> <span class="fg-faint"> 30m</span> Update deps</span>
+<span class="row"><span class="fg-ghost">┊</span></span>
+<span class="row"><span class="fg-faint">───────────────────────────────────────────────────────────────────</span></span>
+<span class="row"><span class="fg-soft">d</span><span class="fg-faint">=diff</span> <span class="fg-soft">p</span><span class="fg-faint">=pop</span> <span class="fg-soft">a</span><span class="fg-faint">=apply</span> <span class="fg-soft">h</span><span class="fg-faint">=collapse</span> <span class="fg-soft">t</span><span class="fg-faint">=tag</span></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="compare-card">
+        <div class="label"><b>2.</b> after <kbd>p</kbd> &mdash; confirm</div>
+        <div class="term-shell" style="--term-cols: 78; --term-rows: 22; transform: scale(0.85)">
+          <div class="term-titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">gt</span></div>
+          <div class="term-body" style="font-size: 13px">
+<span class="row"><span class="fg-faint">┊</span> <span class="b fg-iris">main</span><span class="fg-faint">  origin/main  </span><span class="fg-iris">↑</span><span class="fg-faint">2</span> <span class="fg-iris-d">↓</span><span class="fg-faint">0</span></span>
+<span class="row"><span class="fg-ghost">┊</span></span>
+<span class="row"><span class="fg-amber">┊</span> <span class="b fg-amber">Unstaged</span>  <span class="fg-faint">·</span> <span class="fg-soft">1</span>  <span class="fg-add">+12</span><span class="fg-faint">/</span><span class="fg-del">-3</span></span>
+<span class="row"><span class="fg-amber-d">┊</span>   <span class="fg-mod">M</span> main.go<span class="fg-faint">                       </span><span class="fg-add">+12</span><span class="fg-faint">/</span><span class="fg-del">-3</span></span>
+<span class="row"><span class="fg-ghost">┊</span></span>
+<span class="row"><span class="fg-tag">┊</span> <span class="b fg-tag">Stash</span>     <span class="fg-faint">·</span> <span class="fg-soft">3</span></span>
+<span class="row cursor"><span class="fg-tag">┊</span>   <span class="fg-faint">▼</span> <span class="fg-tag">stash@{0}</span> <span class="fg-faint">  3h</span> WIP: tweak commit</span>
+<span class="row"><span class="fg-tag">┊</span>     <span class="fg-faint">·</span> internal/ui/update.go<span class="fg-faint">       </span><span class="fg-add">+8</span><span class="fg-faint">/</span><span class="fg-del">-2</span></span>
+<span class="row"><span class="fg-tag">┊</span>     <span class="fg-faint">·</span> internal/ui/view.go<span class="fg-faint">         </span><span class="fg-add">+4</span><span class="fg-faint">/</span><span class="fg-del">-1</span></span>
+<span class="row"><span class="fg-tag">┊</span>   <span class="fg-faint">▶</span> <span class="fg-tag">stash@{1}</span> <span class="fg-faint">  2d</span> debug logging</span>
+<span class="row"><span class="fg-tag">┊</span>   <span class="fg-faint">▶</span> <span class="fg-tag">stash@{2}</span> <span class="fg-faint">  6d</span> experiment: hunks</span>
+<span class="row"><span class="fg-ghost">┊</span></span>
+<span class="row"><span class="fg-faint">┊</span> <span class="b fg-soft">Recent commits</span></span>
+<span class="row"><span class="fg-ghost">┊</span>   <span class="fg-faint">▶</span> <span class="fg-iris-d">cfdc578</span> <span class="fg-faint">  3m</span> Refactor pipeline</span>
+<span class="row"><span class="fg-ghost">┊</span>   <span class="fg-faint">▶</span> <span class="fg-iris-d">4bc871d</span> <span class="fg-faint"> 30m</span> Update deps</span>
+<span class="row"><span class="fg-ghost">┊</span></span>
+<span class="row"><span class="fg-faint">───────────────────────────────────────────────────────────────────</span></span>
+<span class="row"><span class="b fg-del">pop stash@{0} ‘WIP: tweak commit’? </span><span class="b fg-soft">[y/N]</span><span class="b fg-del"> _</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-foot">
+    <span><kbd>S</kbd> capital because it's a destructive verb on the working tree &mdash; same convention as <kbd>X</kbd> for delete and <kbd>A</kbd> for amend.</span>
+    <span class="spacer" style="flex:1"></span>
+    <span>conflict on pop → toast &amp; status bar prompt &mdash; gt doesn't try to be a merge tool</span>
+  </div>
+</section>
+
+<!-- ============================================================ 11 DENSITY VARIANTS -->
+<section class="slide" data-screen-label="11 Density variants">
+  <div class="slide-head">
+    <span class="ix">11 / 12</span>
+    <span class="crumbs"><b>Variants</b> &nbsp;·&nbsp; cursor &amp; density choices</span>
+    <span class="spacer"></span>
+    <span class="brand"><b>gt</b> · design refinement</span>
+  </div>
+  <div class="slide-stage">
+    <h2 class="stage-title">Cursor &amp; rail variants <span class="tag">explore</span></h2>
+    <p class="stage-sub">Three options for the cursor row and the section attendance signal. My recommendation is the middle one (full-row dim fill + bright rail). The others are valid &mdash; pick what feels right at your terminal.</p>
+
+    <div class="three-up">
+      <div class="compare-card">
+        <div class="label"><b>A</b> · gutter caret</div>
+        <div class="term-shell" style="--term-cols: 56; --term-rows: 18">
+          <div class="term-titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">gt — A</span></div>
+          <div class="term-body" style="font-size: 12.5px">
+<span class="row"><span class="fg-faint">┊</span> <span class="b fg-iris">main</span><span class="fg-faint">  origin/main  </span><span class="fg-iris">↑</span><span class="fg-faint">2</span> <span class="fg-iris-d">↓</span><span class="fg-faint">0</span></span>
+<span class="row"><span class="fg-ghost">┊</span></span>
+<span class="row"><span class="fg-amber">┊</span> <span class="b fg-amber">Untracked</span> <span class="fg-faint">·</span> <span class="fg-soft">2</span></span>
+<span class="row"><span class="fg-amber-d">┊</span>   <span class="fg-add">?</span> .gitignore</span>
+<span class="row"><span class="fg-amber-d">┊</span>   <span class="fg-add">?</span> go.mod</span>
+<span class="row"><span class="fg-ghost">┊</span></span>
+<span class="row"><span class="fg-amber">┊</span> <span class="b fg-amber">Unstaged</span>  <span class="fg-faint">·</span> <span class="fg-soft">1</span></span>
+<span class="row"><span class="b fg-iris">▎</span><span class="fg-amber-d">┊</span>   <span class="fg-mod">M</span> main.go</span>
+<span class="row"><span class="fg-ghost">┊</span></span>
+<span class="row"><span class="fg-amber">┊</span> <span class="b fg-amber">Staged</span>    <span class="fg-faint">·</span> <span class="fg-soft">1</span></span>
+<span class="row"><span class="fg-amber-d">┊</span>   <span class="fg-mod">M</span> README.md</span>
+<span class="row"><span class="fg-ghost">┊</span></span>
+<span class="row"><span class="fg-faint">┊</span> <span class="b fg-soft">Recent commits</span></span>
+<span class="row"><span class="fg-ghost">┊</span>   <span class="fg-faint">▶</span> <span class="fg-iris-d">cfdc578</span> <span class="fg-faint">  3m</span> Refactor</span>
+<span class="row"><span class="fg-ghost">┊</span>   <span class="fg-faint">▶</span> <span class="fg-iris-d">4bc871d</span> <span class="fg-faint"> 30m</span> Update deps</span>
+          </div>
+        </div>
+        <p style="font-size:13px;color:var(--page-dim);margin:0">A <code>▎</code> caret in column 0 marks the cursor. No fill. Lightest visual weight. <em>Best for very dense sessions; cursor can get lost on long lines.</em></p>
+      </div>
+
+      <div class="compare-card">
+        <div class="label"><b>B</b> · row fill <span style="color:var(--page-accent)">(recommended)</span></div>
+        <div class="term-shell" style="--term-cols: 56; --term-rows: 18">
+          <div class="term-titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">gt — B</span></div>
+          <div class="term-body" style="font-size: 12.5px">
+<span class="row"><span class="fg-faint">┊</span> <span class="b fg-iris">main</span><span class="fg-faint">  origin/main  </span><span class="fg-iris">↑</span><span class="fg-faint">2</span> <span class="fg-iris-d">↓</span><span class="fg-faint">0</span></span>
+<span class="row"><span class="fg-ghost">┊</span></span>
+<span class="row"><span class="fg-amber">┊</span> <span class="b fg-amber">Untracked</span> <span class="fg-faint">·</span> <span class="fg-soft">2</span></span>
+<span class="row"><span class="fg-amber-d">┊</span>   <span class="fg-add">?</span> .gitignore</span>
+<span class="row"><span class="fg-amber-d">┊</span>   <span class="fg-add">?</span> go.mod</span>
+<span class="row"><span class="fg-ghost">┊</span></span>
+<span class="row"><span class="fg-amber">┊</span> <span class="b fg-amber">Unstaged</span>  <span class="fg-faint">·</span> <span class="fg-soft">1</span></span>
+<span class="row cursor"><span class="fg-amber-d">┊</span>   <span class="fg-mod">M</span> main.go</span>
+<span class="row"><span class="fg-ghost">┊</span></span>
+<span class="row"><span class="fg-amber">┊</span> <span class="b fg-amber">Staged</span>    <span class="fg-faint">·</span> <span class="fg-soft">1</span></span>
+<span class="row"><span class="fg-amber-d">┊</span>   <span class="fg-mod">M</span> README.md</span>
+<span class="row"><span class="fg-ghost">┊</span></span>
+<span class="row"><span class="fg-faint">┊</span> <span class="b fg-soft">Recent commits</span></span>
+<span class="row"><span class="fg-ghost">┊</span>   <span class="fg-faint">▶</span> <span class="fg-iris-d">cfdc578</span> <span class="fg-faint">  3m</span> Refactor</span>
+<span class="row"><span class="fg-ghost">┊</span>   <span class="fg-faint">▶</span> <span class="fg-iris-d">4bc871d</span> <span class="fg-faint"> 30m</span> Update deps</span>
+          </div>
+        </div>
+        <p style="font-size:13px;color:var(--page-dim);margin:0">Soft cool-grey row fill (<code>#2a2a35</code>). Rail still bright. Cursor is found instantly even on busy screens. <em>The default.</em></p>
+      </div>
+
+      <div class="compare-card">
+        <div class="label"><b>C</b> · inverted</div>
+        <div class="term-shell" style="--term-cols: 56; --term-rows: 18">
+          <div class="term-titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="title">gt — C</span></div>
+          <div class="term-body" style="font-size: 12.5px">
+<span class="row"><span class="fg-faint">┊</span> <span class="b fg-iris">main</span><span class="fg-faint">  origin/main  </span><span class="fg-iris">↑</span><span class="fg-faint">2</span> <span class="fg-iris-d">↓</span><span class="fg-faint">0</span></span>
+<span class="row"><span class="fg-ghost">┊</span></span>
+<span class="row"><span class="fg-amber">┊</span> <span class="b fg-amber">Untracked</span> <span class="fg-faint">·</span> <span class="fg-soft">2</span></span>
+<span class="row"><span class="fg-amber-d">┊</span>   <span class="fg-add">?</span> .gitignore</span>
+<span class="row"><span class="fg-amber-d">┊</span>   <span class="fg-add">?</span> go.mod</span>
+<span class="row"><span class="fg-ghost">┊</span></span>
+<span class="row"><span class="fg-amber">┊</span> <span class="b fg-amber">Unstaged</span>  <span class="fg-faint">·</span> <span class="fg-soft">1</span></span>
+<span class="row" style="background:#d8d4c7;color:#14141a"><span style="color:#5b5849">┊</span>   <span style="color:#8a3a2a">M</span> <span class="b">main.go</span></span>
+<span class="row"><span class="fg-ghost">┊</span></span>
+<span class="row"><span class="fg-amber">┊</span> <span class="b fg-amber">Staged</span>    <span class="fg-faint">·</span> <span class="fg-soft">1</span></span>
+<span class="row"><span class="fg-amber-d">┊</span>   <span class="fg-mod">M</span> README.md</span>
+<span class="row"><span class="fg-ghost">┊</span></span>
+<span class="row"><span class="fg-faint">┊</span> <span class="b fg-soft">Recent commits</span></span>
+<span class="row"><span class="fg-ghost">┊</span>   <span class="fg-faint">▶</span> <span class="fg-iris-d">cfdc578</span> <span class="fg-faint">  3m</span> Refactor</span>
+<span class="row"><span class="fg-ghost">┊</span>   <span class="fg-faint">▶</span> <span class="fg-iris-d">4bc871d</span> <span class="fg-faint"> 30m</span> Update deps</span>
+          </div>
+        </div>
+        <p style="font-size:13px;color:var(--page-dim);margin:0">Reverse video on the cursor row. Maximum punch. <em>Reads as &ldquo;selected&rdquo; in mutt &amp; ranger; some find it loud.</em> Available as a tweak.</p>
+      </div>
+    </div>
+  </div>
+  <div class="slide-foot">
+    <span>All three render correctly on truecolor terminals; B and C degrade to ANSI 241 / reverse on 16-color.</span>
+    <span class="spacer" style="flex:1"></span>
+    <span>controlled by <code>cursor.style</code> tweak (gutter · row · invert)</span>
+  </div>
+</section>
+
+<!-- ============================================================ 12 IMPLEMENTATION NOTES -->
+<section class="slide" data-screen-label="12 Implementation notes">
+  <div class="slide-head">
+    <span class="ix">12 / 12</span>
+    <span class="crumbs"><b>Handoff</b> &nbsp;·&nbsp; what to change in the code</span>
+    <span class="spacer"></span>
+    <span class="brand"><b>gt</b> · design refinement</span>
+  </div>
+  <div class="slide-stage" style="display:block">
+    <h2 class="stage-title">Implementation notes <span class="tag">for Claude Code</span></h2>
+    <p class="stage-sub">Sequenced so each step lands on its own. Each row maps to a small, reviewable PR. View paths are <code>internal/ui/view.go</code> unless noted.</p>
+
+    <div style="display:grid; grid-template-columns: 60px 1.4fr 1fr 1fr; gap: 0; margin-top: 26px; font-family: var(--mono); font-size: 13px; border-top: 1px solid var(--page-rule)">
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-dim); letter-spacing: 0.08em; font-size: 11px">STEP</div>
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-dim); letter-spacing: 0.08em; font-size: 11px">CHANGE</div>
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-dim); letter-spacing: 0.08em; font-size: 11px">FILES</div>
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-dim); letter-spacing: 0.08em; font-size: 11px">SHIPS</div>
+
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-accent)">01</div>
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-fg)">Truecolor palette &amp; named tokens. Replace <code style="color:var(--term-iris)">lipgloss.Color("3")</code> calls with named hex tokens.</div>
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-dim)">view.go (top of file) — add <code style="color:var(--term-iris)">var theme = struct&nbsp;{...}</code></div>
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-dim)">v0.2 — visual refresh, no behavior change</div>
+
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-accent)">02</div>
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-fg)">Add <b>section rail</b>: prepend <code style="color:var(--term-iris)">┊ </code> to every row. Bright on sections with files, ghost on empty sections.</div>
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-dim)">view.go <code style="color:var(--term-iris)">renderRow</code> + <code style="color:var(--term-iris)">sectionHeader</code></div>
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-dim)">v0.2</div>
+
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-accent)">03</div>
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-fg)">Demote &ldquo;Recent commits&rdquo; to <code style="color:var(--term-iris)">styleSoft</code>. Make HEAD ref iris, not amber.</div>
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-dim)">view.go <code style="color:var(--term-iris)">sectionHeader</code> + <code style="color:var(--term-iris)">renderRefs</code></div>
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-dim)">v0.2</div>
+
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-accent)">04</div>
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-fg)">Add <b>diff stat</b> to section headers and per-row right-align. Sum from <code style="color:var(--term-iris)">FileEntry.Added/Deleted</code>.</div>
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-dim)">view.go <code style="color:var(--term-iris)">fileRow</code>, <code style="color:var(--term-iris)">sectionHeader</code></div>
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-dim)">v0.2</div>
+
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-accent)">05</div>
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-fg)">Cursor row pin: keep current full-row fill (B); expose <code style="color:var(--term-iris)">cursor.style</code> in a future config.</div>
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-dim)">view.go <code style="color:var(--term-iris)">renderRow</code> &mdash; small</div>
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-dim)">v0.2</div>
+
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-accent)">06</div>
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-fg)"><b>Inline diff (unified).</b> New mode <code style="color:var(--term-iris)">modeDiff</code>; parser for <code style="color:var(--term-iris)">git diff -U3 --no-color</code>; viewport with <code style="color:var(--term-iris)">[</code>/<code style="color:var(--term-iris)">]</code> hunk nav.</div>
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-dim)">new: <code style="color:var(--term-iris)">internal/ui/diff.go</code>; wire from <code style="color:var(--term-iris)">update.go</code>'s <code style="color:var(--term-iris)">d</code> handler</div>
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-dim)">v0.3 — <em>biggest change</em></div>
+
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-accent)">07</div>
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-fg)"><b>Hunk-level staging.</b> <code style="color:var(--term-iris)">s</code> in diff mode → <code style="color:var(--term-iris)">git apply --cached</code> on a synthesized patch from one hunk.</div>
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-dim)">diff.go + <code style="color:var(--term-iris)">internal/git/stage.go</code></div>
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-dim)">v0.3</div>
+
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-accent)">08</div>
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-fg)"><b>Split mode</b> (<code style="color:var(--term-iris)">v</code> toggle). Pair lines from the same parsed hunk; reuse stage plumbing.</div>
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-dim)">diff.go &mdash; pure rendering</div>
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-dim)">v0.3</div>
+
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-accent)">09</div>
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-fg)"><b>Stash section.</b> Add <code style="color:var(--term-iris)">git.SectionStash</code>; new <code style="color:var(--term-iris)">stash.go</code> wrapping <code style="color:var(--term-iris)">git stash list/show/pop/apply/drop/push -m</code>.</div>
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-dim)">new: <code style="color:var(--term-iris)">internal/git/stash.go</code>; <code style="color:var(--term-iris)">model.go</code>, <code style="color:var(--term-iris)">view.go</code></div>
+      <div style="padding: 14px 12px; border-bottom: 1px solid var(--page-rule); color: var(--page-dim)">v0.4</div>
+
+      <div style="padding: 14px 12px; color: var(--page-accent)">10</div>
+      <div style="padding: 14px 12px; color: var(--page-fg)"><b>Stash keys</b>: <code style="color:var(--term-iris)">S</code> (new), <code style="color:var(--term-iris)">p</code> (pop), <code style="color:var(--term-iris)">a</code> (apply), <code style="color:var(--term-iris)">D</code> (drop). Reuse confirm + commit-prompt machinery.</div>
+      <div style="padding: 14px 12px; color: var(--page-dim)">update.go, keys.go</div>
+      <div style="padding: 14px 12px; color: var(--page-dim)">v0.4</div>
+    </div>
+
+    <div style="margin-top: 28px; display: grid; grid-template-columns: 1fr 1fr; gap: 32px">
+      <div class="callout">
+        <b style="color:var(--page-fg)">Sequencing rationale.</b> 01–05 are pure rendering, no model changes &mdash; safe to ship as a polish PR. 06–08 introduce a new mode but reuse <code>tea.ExecProcess</code> only as a fallback (<kbd>L</kbd>). 09–10 add a section without changing the row model. <em>Each ships independently.</em>
+      </div>
+      <div class="callout" style="border-color: var(--term-iris)">
+        <b style="color:var(--page-fg)">Out of this doc, but worth a thought.</b> The diff-stat fetch is currently per-file via porcelain; consider <code>git diff --numstat</code> once and caching, so we can show stats on section headers without N+1 calls.
+      </div>
+    </div>
+  </div>
+</section>
+
+</deck-stage>
+
+</body>
+</html>
