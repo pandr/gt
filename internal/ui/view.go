@@ -136,15 +136,25 @@ func (m Model) renderRow(r row, isCursor bool) string {
 	line := rail + " " + content
 
 	if isCursor {
-		if m.width > 0 {
-			visible := visibleLen(line)
-			if visible < m.width {
-				line += strings.Repeat(" ", m.width-visible)
-			}
-		}
-		return cursorBg.Render(line)
+		return applyCursorBg(line, m.width)
 	}
 	return line
+}
+
+// applyCursorBg pads line to width and applies the cursor background color.
+// It re-injects the background code after every SGR reset sequence, because
+// inner color codes emit a reset that clears any background set by a wrapper.
+const cursorBgCode = "\x1b[48;2;42;42;53m"
+
+func applyCursorBg(line string, width int) string {
+	if width > 0 {
+		if w := visibleLen(line); w < width {
+			line += strings.Repeat(" ", width-w)
+		}
+	}
+	line = strings.ReplaceAll(line, "\x1b[0m", "\x1b[0m"+cursorBgCode)
+	line = strings.ReplaceAll(line, "\x1b[m", "\x1b[m"+cursorBgCode)
+	return cursorBgCode + line + "\x1b[0m"
 }
 
 // railFor returns the styled ┊ glyph appropriate for a given row.

@@ -29,9 +29,6 @@ var (
 	fgSoft  = lipgloss.NewStyle().Foreground(lipgloss.Color("#a39e8d")) // de-emphasized
 	fgFaint = lipgloss.NewStyle().Foreground(lipgloss.Color("#5b5849")) // hint bar, separators
 
-	// Cursor pin: background only, scoped to content width
-	cursorBg = lipgloss.NewStyle().Background(lipgloss.Color("#2a2a35"))
-
 	// Status bar chrome
 	styleStatusBar = lipgloss.NewStyle().Foreground(lipgloss.Color("#5b5849"))
 	styleToast     = lipgloss.NewStyle().Foreground(lipgloss.Color("#c87766")).Bold(true)
