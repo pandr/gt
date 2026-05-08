@@ -200,7 +200,7 @@ func (m Model) rowContent(r row) string {
 		if r.file == nil {
 			return ""
 		}
-		return indent + m.fileRow(r.file, r.section, r.depth)
+		return indent + m.fileRow(r.file, r.section)
 	case rowCommit:
 		if r.commit == nil {
 			return ""
@@ -327,7 +327,7 @@ func (m Model) sectionHeader(s git.Section) string {
 	return header
 }
 
-func (m Model) fileRow(f *git.FileEntry, section git.Section, depth int) string {
+func (m Model) fileRow(f *git.FileEntry, section git.Section) string {
 	xy := f.XY
 	var indicator string
 	var indicatorStyle lipgloss.Style
@@ -359,20 +359,10 @@ func (m Model) fileRow(f *git.FileEntry, section git.Section, depth int) string 
 
 	prefix := "  " + indicatorStyle.Render(indicator) + " "
 	stats := formatStats(f.Added, f.Deleted)
-	if stats == "" || m.width <= 0 {
+	if stats == "" {
 		return prefix + f.Path
 	}
-
-	// "┊ " (2 chars) is prepended by renderRow; account for it when computing right edge.
-	prefixVis := 2 + depth*2 + 4 // rail+space + indent + (2spaces+indicator+space)
-	pathLen := len(f.Path)
-	statsVis := visibleLen(stats)
-	targetCol := m.width - 1 - statsVis // right-align with 1-cell margin
-	pad := targetCol - prefixVis - pathLen
-	if pad < 1 {
-		return prefix + f.Path + " " + stats
-	}
-	return prefix + f.Path + strings.Repeat(" ", pad) + stats
+	return prefix + f.Path + "  " + stats
 }
 
 func xyIndicator(ch rune) (string, lipgloss.Style) {
