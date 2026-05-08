@@ -25,7 +25,28 @@ const (
 	modeTagPrefix // waiting for ;<cmd>
 	modeHelp
 	modeConfirm // waiting for y/n on a destructive action
+	modeDiff    // inline diff view
 )
+
+// diffViewLine is an entry in the flat line list used by the inline diff view.
+// lineIdx == -1 means this entry represents a hunk header; otherwise it is
+// an index into Hunk.Lines for the hunk at hunkIdx.
+type diffViewLine struct {
+	hunkIdx int
+	lineIdx int
+}
+
+// flatDiffLines builds the flat ordered list of view lines for a ParsedDiff.
+func flatDiffLines(d *git.ParsedDiff) []diffViewLine {
+	var lines []diffViewLine
+	for i := range d.Hunks {
+		lines = append(lines, diffViewLine{hunkIdx: i, lineIdx: -1})
+		for j := range d.Hunks[i].Lines {
+			lines = append(lines, diffViewLine{hunkIdx: i, lineIdx: j})
+		}
+	}
+	return lines
+}
 
 // rowKind identifies what a cursor row represents.
 type rowKind int
@@ -92,6 +113,11 @@ type Model struct {
 	cursorTargetPath string
 
 	toast string // transient error message
+
+	// inline diff view state (modeDiff)
+	diff       *git.ParsedDiff
+	diffFlat   []diffViewLine // precomputed flat line list
+	diffCursor int            // index into diffFlat
 
 	width  int
 	height int
