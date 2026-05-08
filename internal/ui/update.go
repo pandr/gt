@@ -903,6 +903,24 @@ func (m Model) handleDiffKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.diffCursor > 0 {
 			m.diffCursor--
 		}
+	case " ", "ctrl+d":
+		pageSize := m.height / 2
+		if pageSize < 1 {
+			pageSize = 1
+		}
+		m.diffCursor += pageSize
+		if m.diffCursor >= len(m.diffFlat) {
+			m.diffCursor = len(m.diffFlat) - 1
+		}
+	case "ctrl+u":
+		pageSize := m.height / 2
+		if pageSize < 1 {
+			pageSize = 1
+		}
+		m.diffCursor -= pageSize
+		if m.diffCursor < 0 {
+			m.diffCursor = 0
+		}
 	case "g":
 		m.diffCursor = 0
 	case "G":

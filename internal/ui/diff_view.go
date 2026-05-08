@@ -48,7 +48,7 @@ func (m Model) diffView() string {
 	b.WriteString(fgFaint.Render(strings.Repeat("─", sepWidth)))
 	b.WriteString("\n")
 
-	b.WriteString(styleStatusBar.Render("j/k=line  ]/[=hunk  e=editor  L=less  q=back"))
+	b.WriteString(styleStatusBar.Render("j/k=line  space/ctrl+d/u=page  ]/[=hunk  e=editor  L=less  q=back"))
 
 	return b.String()
 }
