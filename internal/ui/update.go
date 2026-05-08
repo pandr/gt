@@ -424,7 +424,7 @@ func (m Model) doDiff(r row, tags map[string]bool) (tea.Model, tea.Cmd) {
 	switch r.kind {
 	case rowFile:
 		if r.section == git.SectionWorkingTree {
-			return m, m.diffWTFile(r.file.Path)
+			return m.doInlineWTFile(r.file.Path)
 		}
 		return m.doInlineDiff(r.file.Path, r.section)
 	case rowSectionHeader:
@@ -529,30 +529,22 @@ func (m Model) taggedDiff(tags map[string]bool) tea.Cmd {
 	return tea.Sequence(cmds...)
 }
 
-func (m Model) diffWTFile(path string) tea.Cmd {
-	var cmds []tea.Cmd
+// doInlineWTFile opens the inline diff for a working-tree file.
+// Unstaged changes take priority; falls back to staged if only staged exists.
+func (m Model) doInlineWTFile(path string) (tea.Model, tea.Cmd) {
 	if m.status != nil {
 		for _, f := range m.status.Unstaged {
 			if f.Path == path {
-				if cmd := git.DiffCmd(m.repoRoot, git.SectionUnstaged, path); cmd != nil {
-					cmds = append(cmds, execDiff(cmd))
-				}
-				break
+				return m.doInlineDiff(path, git.SectionUnstaged)
 			}
 		}
 		for _, f := range m.status.Staged {
 			if f.Path == path {
-				if cmd := git.DiffCmd(m.repoRoot, git.SectionStaged, path); cmd != nil {
-					cmds = append(cmds, execDiff(cmd))
-				}
-				break
+				return m.doInlineDiff(path, git.SectionStaged)
 			}
 		}
 	}
-	if len(cmds) == 0 {
-		return nil
-	}
-	return tea.Sequence(cmds...)
+	return m, nil
 }
 
 func (m Model) doViewFile() (Model, tea.Cmd) {
