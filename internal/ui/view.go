@@ -9,24 +9,6 @@ import (
 	"github.com/petera/gt/internal/git"
 )
 
-var (
-	styleBranch    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
-	styleHeader    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("3"))
-	styleCursor    = lipgloss.NewStyle().Background(lipgloss.Color("241")).Bold(true)
-	styleTagged    = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))
-	styleStatusBar = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
-	styleToast     = lipgloss.NewStyle().Foreground(lipgloss.Color("1")).Bold(true)
-	styleHelp      = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(1, 2)
-	styleDim       = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
-	styleAdd       = lipgloss.NewStyle().Foreground(lipgloss.Color("2"))
-	styleMod       = lipgloss.NewStyle().Foreground(lipgloss.Color("3"))
-	styleDel       = lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
-	styleRefLocal  = lipgloss.NewStyle().Foreground(lipgloss.Color("6"))          // cyan for local branches
-	styleRefHead   = lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Bold(true) // yellow bold for HEAD ->
-	styleRefRemote = lipgloss.NewStyle().Foreground(lipgloss.Color("6"))          // cyan (non-bold) for remote refs
-	styleRefTag    = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))          // magenta for tags
-)
-
 func (m Model) View() string {
 	if m.mode == modeHelp {
 		return m.helpView()
@@ -34,11 +16,9 @@ func (m Model) View() string {
 
 	var b strings.Builder
 
-	// Branch header
 	b.WriteString(m.branchHeader())
-	b.WriteString("\n\n")
+	b.WriteString("\n")
 
-	// Rows
 	visibleStart, visibleEnd := m.visibleRange()
 	for i := visibleStart; i < visibleEnd; i++ {
 		r := m.rows[i]
@@ -47,9 +27,8 @@ func (m Model) View() string {
 		b.WriteString("\n")
 	}
 
-	// Fill remaining lines to keep status bar at bottom
 	rendered := visibleEnd - visibleStart
-	headerLines := 2 // branch + blank
+	headerLines := 1
 	statusLines := 1
 	if m.mode == modeCommit || m.mode == modeShell {
 		statusLines = 2
@@ -63,7 +42,6 @@ func (m Model) View() string {
 		b.WriteString("\n")
 	}
 
-	// Status bar / commit input
 	b.WriteString(m.statusBar())
 
 	return b.String()
@@ -71,57 +49,59 @@ func (m Model) View() string {
 
 func (m Model) branchHeader() string {
 	if m.status == nil {
-		return styleBranch.Render("Loading…")
+		return railFaint.Render("┊") + " " + branchIris.Render("Loading…")
 	}
+
 	branch := m.status.Branch
 	if branch == "(detached)" || branch == "" {
 		branch = "(detached HEAD)"
 	}
-	s := styleBranch.Render("On branch " + branch)
+
+	s := branchIris.Render(branch)
+
 	if m.status.Upstream != "" {
-		parts := []string{}
+		s += "  " + remoteIris.Render(m.status.Upstream)
 		if m.status.Ahead > 0 {
-			parts = append(parts, fmt.Sprintf("↑%d", m.status.Ahead))
+			s += "  " + branchIris.Render("↑") + fgFaint.Render(fmt.Sprintf("%d", m.status.Ahead))
 		}
 		if m.status.Behind > 0 {
-			parts = append(parts, fmt.Sprintf("↓%d", m.status.Behind))
+			s += " " + remoteIris.Render("↓") + fgFaint.Render(fmt.Sprintf("%d", m.status.Behind))
 		}
-		info := m.status.Upstream
-		if len(parts) > 0 {
-			info += "  " + strings.Join(parts, " ")
-		}
-		s += styleDim.Render("   "+info)
 	}
+
+	rail := railFaint.Render("┊")
+	line := rail + " " + s
+
 	if m.version != "" && m.width > 0 {
-		ver := styleDim.Render(m.version)
-		used := visibleLen(s)
+		ver := fgFaint.Render(m.version)
+		used := visibleLen(line)
 		pad := m.width - used - visibleLen(m.version)
 		if pad > 1 {
-			s += strings.Repeat(" ", pad) + ver
+			line += strings.Repeat(" ", pad) + ver
 		}
 	}
-	return s
+
+	return line
 }
 
 func (m Model) visibleRange() (int, int) {
 	if len(m.rows) == 0 {
 		return 0, 0
 	}
-	headerLines := 2
+	headerLines := 1
 	statusLines := 1
 	if m.mode == modeCommit || m.mode == modeShell {
 		statusLines = 2
 	}
 	h := m.height
 	if h < 10 {
-		h = 24 // sensible default before first WindowSizeMsg
+		h = 24
 	}
 	available := h - headerLines - statusLines
 	if available < 1 {
 		available = 1
 	}
 
-	// Simple scroll: keep cursor visible
 	start := m.cursor - available/2
 	if start < 0 {
 		start = 0
@@ -138,27 +118,71 @@ func (m Model) visibleRange() (int, int) {
 }
 
 func (m Model) renderRow(r row, isCursor bool) string {
-	line := m.rowContent(r)
+	content := m.rowContent(r)
 
 	tagged := tagKey(r) != "" && m.tags[tagKey(r)]
 	if tagged {
-		line = styleTagged.Render("*") + line[1:]
+		// Replace the indicator/arrow character with the * tagged marker.
+		// For file rows: "indent  X path" — indicator is at depth*2+2.
+		// For commit rows: "  ▶ sha..." — arrow is at position 2 (depth=0).
+		// The formula depth*2+2 covers both cases.
+		indicatorPos := r.depth*2 + 2
+		before := visiblePrefix(content, indicatorPos)
+		after := visibleSuffix(content, indicatorPos+1)
+		content = before + tagStyle.Render("*") + after
 	}
 
+	rail := m.railFor(r)
+	line := rail + " " + content
+
 	if isCursor {
-		// Body lines have no inner ANSI codes, so padding would bleed the
-		// background across the whole terminal. Skip padding for them so the
-		// highlight matches the short appearance of the commit header above.
-		padded := line
-		if m.width > 0 && r.kind != rowCommitBody {
-			visible := visibleLen(line)
-			if visible < m.width {
-				padded = line + strings.Repeat(" ", m.width-visible)
-			}
-		}
-		return styleCursor.Render(padded)
+		return cursorBg.Render(line)
 	}
 	return line
+}
+
+// railFor returns the styled ┊ glyph appropriate for a given row.
+func (m Model) railFor(r row) string {
+	const glyph = "┊"
+	switch r.kind {
+	case rowSeparator:
+		return railGhost.Render(glyph)
+	case rowSectionHeader:
+		switch r.section {
+		case git.SectionLog, git.SectionWorkingTree:
+			return railFaint.Render(glyph)
+		default:
+			if m.sectionHasWork(r.section) {
+				return railActive.Render(glyph)
+			}
+			return railGhost.Render(glyph)
+		}
+	case rowFile, rowDir:
+		switch r.section {
+		case git.SectionLog, git.SectionWorkingTree:
+			return railFaint.Render(glyph)
+		default:
+			return railUnder.Render(glyph)
+		}
+	case rowCommit, rowCommitBody, rowCommitFile:
+		return railFaint.Render(glyph)
+	}
+	return railGhost.Render(glyph)
+}
+
+func (m Model) sectionHasWork(s git.Section) bool {
+	if m.status == nil {
+		return false
+	}
+	switch s {
+	case git.SectionUntracked:
+		return len(m.status.Untracked) > 0
+	case git.SectionUnstaged:
+		return len(m.status.Unstaged) > 0
+	case git.SectionStaged:
+		return len(m.status.Staged) > 0
+	}
+	return false
 }
 
 func (m Model) rowContent(r row) string {
@@ -170,7 +194,7 @@ func (m Model) rowContent(r row) string {
 		if r.file == nil {
 			return ""
 		}
-		return indent + m.fileRow(r.file, r.section)
+		return indent + m.fileRow(r.file, r.section, r.depth)
 	case rowCommit:
 		if r.commit == nil {
 			return ""
@@ -179,24 +203,23 @@ func (m Model) rowContent(r row) string {
 		if len(sha) > 7 {
 			sha = sha[:7]
 		}
-		arrow := styleDim.Render("▶")
+		arrow := fgFaint.Render("▶")
 		if _, ok := m.openCommits[r.commit.SHA]; ok {
-			arrow = styleDim.Render("▼")
+			arrow = fgFaint.Render("▼")
 		}
-		ts := styleDim.Render(formatCommitAge(r.commit.Time, time.Now()))
+		age := fgFaint.Render(formatCommitAge(r.commit.Time, time.Now()))
 		refs := ""
 		if len(r.commit.Refs) > 0 {
-			refs = " " + renderRefs(r.commit.Refs)
+			refs = "  " + renderRefs(r.commit.Refs)
 		}
-		return "  " + arrow + " " + styleDim.Render(sha) + " " + ts + " " + r.commit.Title + refs
+		return "  " + arrow + " " + shaIris.Render(sha) + " " + age + " " + r.commit.Title + refs
 	case rowCommitBody:
-		// 18-space indent aligns text under the title ("  ▼ sha7 ttttt ")
-		return "                  " + styleDim.Render(r.dirPath)
+		return "                  " + fgFaint.Render(r.dirPath)
 	case rowCommitFile:
 		if r.commit == nil {
 			return ""
 		}
-		return indent + "    " + styleDim.Render("·") + " " + r.dirPath + formatStats(r.statAdded, r.statDeleted)
+		return indent + "    " + fgFaint.Render("·") + " " + r.dirPath + formatStats(r.statAdded, r.statDeleted)
 	case rowDir:
 		return m.dirRow(r)
 	case rowSeparator:
@@ -206,7 +229,6 @@ func (m Model) rowContent(r row) string {
 }
 
 func (m Model) dirRow(r row) string {
-	// Working tree root is driven by wtOpen, not openDirs
 	if r.section == git.SectionWorkingTree && r.dirPath == "./" {
 		arrow := "▶"
 		if m.wtOpen {
@@ -214,9 +236,9 @@ func (m Model) dirRow(r row) string {
 		}
 		extra := ""
 		if !m.wtOpen && len(m.wtFiles) > 0 {
-			extra = styleDim.Render(fmt.Sprintf("  (%d files)", len(m.wtFiles)))
+			extra = fgFaint.Render(fmt.Sprintf("  (%d files)", len(m.wtFiles)))
 		}
-		return "  " + styleDim.Render(arrow) + " " + styleDim.Render("./") + extra
+		return "  " + fgFaint.Render(arrow) + " " + fgFaint.Render("./") + extra
 	}
 	indent := strings.Repeat("  ", r.depth)
 	arrow := "▶"
@@ -227,26 +249,35 @@ func (m Model) dirRow(r row) string {
 	extra := ""
 	if !m.openDirs[r.dirPath] {
 		if children, ok := m.dirContents[r.dirPath]; ok {
-			extra = styleDim.Render(fmt.Sprintf("  (%d files)", len(children)))
+			extra = fgFaint.Render(fmt.Sprintf("  (%d files)", len(children)))
 		}
 	}
 	var nameStyle lipgloss.Style
 	switch r.section {
 	case git.SectionWorkingTree:
 		if m.dirHasChanges(r.dirPath) {
-			nameStyle = styleMod
+			nameStyle = modStyle
 		} else {
-			nameStyle = styleDim
+			nameStyle = fgFaint
 		}
 	default:
-		nameStyle = styleAdd
+		nameStyle = addStyle
 	}
-	return indent + "  " + styleDim.Render(arrow) + " " + nameStyle.Render(name) + extra
+	return indent + "  " + fgFaint.Render(arrow) + " " + nameStyle.Render(name) + extra
 }
 
 func (m Model) sectionHeader(s git.Section) string {
+	switch s {
+	case git.SectionLog:
+		return sectHeaderQ.Render("Recent commits")
+	case git.SectionWorkingTree:
+		return sectHeader.Render("Working tree")
+	}
+
 	var name string
 	var count int
+	var totalAdded, totalDeleted int
+
 	switch s {
 	case git.SectionUntracked:
 		name = "Untracked"
@@ -256,7 +287,7 @@ func (m Model) sectionHeader(s git.Section) string {
 					if contents, ok := m.dirContents[f.Path]; ok {
 						count += len(contents)
 					} else {
-						count++ // contents not yet loaded; count dir as 1
+						count++
 					}
 				} else {
 					count++
@@ -267,30 +298,30 @@ func (m Model) sectionHeader(s git.Section) string {
 		name = "Unstaged"
 		if m.status != nil {
 			count = len(m.status.Unstaged)
+			for _, f := range m.status.Unstaged {
+				totalAdded += f.Added
+				totalDeleted += f.Deleted
+			}
 		}
 	case git.SectionStaged:
 		name = "Staged"
 		if m.status != nil {
 			count = len(m.status.Staged)
-			var totalAdded, totalDeleted int
 			for _, f := range m.status.Staged {
 				totalAdded += f.Added
 				totalDeleted += f.Deleted
 			}
-			if totalAdded > 0 || totalDeleted > 0 {
-				return styleHeader.Render(fmt.Sprintf("%s (%d)", name, count)) + formatStats(totalAdded, totalDeleted)
-			}
 		}
-	case git.SectionLog:
-		name = "Recent commits"
-		return styleHeader.Render(name)
-	case git.SectionWorkingTree:
-		return styleHeader.Render("Working tree")
 	}
-	return styleHeader.Render(fmt.Sprintf("%s (%d)", name, count))
+
+	header := sectHeader.Render(name) + " " + fgFaint.Render("·") + " " + fgSoft.Render(fmt.Sprintf("%d", count))
+	if totalAdded > 0 || totalDeleted > 0 {
+		header += " " + formatStats(totalAdded, totalDeleted)
+	}
+	return header
 }
 
-func (m Model) fileRow(f *git.FileEntry, section git.Section) string {
+func (m Model) fileRow(f *git.FileEntry, section git.Section, depth int) string {
 	xy := f.XY
 	var indicator string
 	var indicatorStyle lipgloss.Style
@@ -298,7 +329,7 @@ func (m Model) fileRow(f *git.FileEntry, section git.Section) string {
 	switch section {
 	case git.SectionUntracked:
 		indicator = "?"
-		indicatorStyle = styleAdd
+		indicatorStyle = addStyle
 	case git.SectionUnstaged:
 		y := rune(xy[1])
 		indicator, indicatorStyle = xyIndicator(y)
@@ -314,46 +345,61 @@ func (m Model) fileRow(f *git.FileEntry, section git.Section) string {
 				return "  " + sty.Render(ind) + " " + f.Path
 			} else if x != '.' {
 				ind, sty := xyIndicator(x)
-				return "  " + sty.Render(ind) + " " + styleDim.Render(f.Path)
+				return "  " + sty.Render(ind) + " " + fgFaint.Render(f.Path)
 			}
 		}
-		return "   " + styleDim.Render(f.Path)
+		return "   " + fgFaint.Render(f.Path)
 	}
 
-	return "  " + indicatorStyle.Render(indicator) + " " + f.Path + formatStats(f.Added, f.Deleted)
+	prefix := "  " + indicatorStyle.Render(indicator) + " "
+	stats := formatStats(f.Added, f.Deleted)
+	if stats == "" || m.width <= 0 {
+		return prefix + f.Path
+	}
+
+	// "┊ " (2 chars) is prepended by renderRow; account for it when computing right edge.
+	prefixVis := 2 + depth*2 + 4 // rail+space + indent + (2spaces+indicator+space)
+	pathLen := len(f.Path)
+	statsVis := visibleLen(stats)
+	targetCol := m.width - 1 - statsVis // right-align with 1-cell margin
+	pad := targetCol - prefixVis - pathLen
+	if pad < 1 {
+		return prefix + f.Path + " " + stats
+	}
+	return prefix + f.Path + strings.Repeat(" ", pad) + stats
 }
 
 func xyIndicator(ch rune) (string, lipgloss.Style) {
 	switch ch {
 	case 'A':
-		return "A", styleAdd
+		return "A", addStyle
 	case 'M', 'T', 'U':
-		return "M", styleMod
+		return "M", modStyle
 	case 'D':
-		return "D", styleDel
+		return "D", delStyle
 	case 'R':
-		return "R", styleMod
+		return "R", modStyle
 	case 'C':
-		return "C", styleAdd
+		return "C", addStyle
 	}
-	return string(ch), styleDim
+	return string(ch), fgFaint
 }
 
 func formatStats(added, deleted int) string {
 	if added == 0 && deleted == 0 {
 		return ""
 	}
-	s := "  "
+	var b strings.Builder
 	if added > 0 {
-		s += styleAdd.Render(fmt.Sprintf("+%d", added))
+		b.WriteString(addStyle.Render(fmt.Sprintf("+%d", added)))
 	}
 	if added > 0 && deleted > 0 {
-		s += styleDim.Render("/")
+		b.WriteString(fgFaint.Render("/"))
 	}
 	if deleted > 0 {
-		s += styleDel.Render(fmt.Sprintf("-%d", deleted))
+		b.WriteString(delStyle.Render(fmt.Sprintf("-%d", deleted)))
 	}
-	return s
+	return b.String()
 }
 
 func renderRefs(refs []string) string {
@@ -362,18 +408,19 @@ func renderRefs(refs []string) string {
 		var rendered string
 		switch {
 		case strings.HasPrefix(r, "HEAD -> "):
+			// Design: drop the "HEAD →" annotation; just show the branch normally.
 			branch := strings.TrimPrefix(r, "HEAD -> ")
-			rendered = styleRefHead.Render("HEAD → ") + styleRefLocal.Render(branch)
+			rendered = branchIris.Render(branch)
 		case strings.HasPrefix(r, "tag: "):
-			rendered = styleRefTag.Render(r)
+			rendered = refTagIris.Render(r)
 		case strings.Contains(r, "/"):
-			rendered = styleRefRemote.Render(r)
+			rendered = remoteIris.Render(r)
 		default:
-			rendered = styleRefLocal.Render(r)
+			rendered = branchIris.Render(r)
 		}
 		parts = append(parts, rendered)
 	}
-	return styleDim.Render("(") + strings.Join(parts, styleDim.Render(", ")) + styleDim.Render(")")
+	return fgFaint.Render("(") + strings.Join(parts, fgFaint.Render(", ")) + fgFaint.Render(")")
 }
 
 func (m Model) statusBar() string {
@@ -383,12 +430,12 @@ func (m Model) statusBar() string {
 	if m.mode == modeCommit {
 		prefix := ""
 		if m.amendMode {
-			prefix = styleMod.Render("amend  ")
+			prefix = modStyle.Render("amend  ")
 		}
 		return "\n" + prefix + m.commitInput.View()
 	}
 	if m.mode == modeShell {
-		return "\n" + styleHeader.Render("!") + " " + m.commitInput.View()
+		return "\n" + sectHeader.Render("!") + " " + m.commitInput.View()
 	}
 	if m.mode == modeTagPrefix {
 		return styleStatusBar.Render(";_ — waiting for command (s=stage  u=unstage  d=diff)")
@@ -403,7 +450,7 @@ func (m Model) statusBar() string {
 	} else {
 		n := len(m.tags)
 		if n > 0 {
-			parts = append(parts, styleTagged.Render(fmt.Sprintf("[%d tagged]", n)))
+			parts = append(parts, tagStyle.Render(fmt.Sprintf("[%d tagged]", n)))
 		}
 		parts = append(parts, styleStatusBar.Render(m.contextHints()))
 	}
@@ -481,16 +528,16 @@ func (m Model) helpView() string {
 	return styleHelp.Render(b.String())
 }
 
-// formatCommitAge renders a commit timestamp as a fixed 5-char field:
+// formatCommitAge renders a commit timestamp as a fixed 4-char field:
 //
-//	"   3m"  under 1 hour
-//	"  30h"  1-47 hours
-//	"  13d"  2-13 days
-//	"DD-MM"  14d up to 1 year
-//	" YYYY"  older than 1 year
+//	"  3m"  under 1 hour
+//	" 30h"  1-47 hours
+//	" 13d"  2-13 days
+//	"DD-MM" 14d up to 1 year
+//	"YYYY"  older than 1 year
 func formatCommitAge(t, now time.Time) string {
 	if t.IsZero() {
-		return "     "
+		return "    "
 	}
 	d := now.Sub(t)
 	switch {
@@ -499,20 +546,19 @@ func formatCommitAge(t, now time.Time) string {
 		if m < 1 {
 			m = 1
 		}
-		return fmt.Sprintf("%4dm", m)
+		return fmt.Sprintf("%3dm", m)
 	case d < 48*time.Hour:
-		return fmt.Sprintf("%4dh", int(d/time.Hour))
+		return fmt.Sprintf("%3dh", int(d/time.Hour))
 	case d < 14*24*time.Hour:
-		return fmt.Sprintf("%4dd", int(d/(24*time.Hour)))
+		return fmt.Sprintf("%3dd", int(d/(24*time.Hour)))
 	case d < 365*24*time.Hour:
 		return t.Format("02-01")
 	default:
-		return fmt.Sprintf(" %4d", t.Year())
+		return fmt.Sprintf("%4d", t.Year())
 	}
 }
 
-// visibleLen returns the visible (non-ANSI) length of a string.
-// Rough approximation: strip ANSI and count runes.
+// visibleLen returns the number of visible (non-ANSI) characters in s.
 func visibleLen(s string) int {
 	inEscape := false
 	n := 0
@@ -530,4 +576,78 @@ func visibleLen(s string) int {
 		n++
 	}
 	return n
+}
+
+// stripANSI returns s with all ANSI escape sequences removed.
+func stripANSI(s string) string {
+	var b strings.Builder
+	inEscape := false
+	for _, r := range s {
+		if inEscape {
+			if r == 'm' {
+				inEscape = false
+			}
+			continue
+		}
+		if r == '\x1b' {
+			inEscape = true
+			continue
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
+}
+
+// visiblePrefix returns the bytes of s that correspond to the first n visible characters,
+// preserving any ANSI sequences encountered along the way.
+func visiblePrefix(s string, n int) string {
+	var b strings.Builder
+	inEscape := false
+	count := 0
+	for _, r := range s {
+		if count >= n && !inEscape {
+			break
+		}
+		b.WriteRune(r)
+		if inEscape {
+			if r == 'm' {
+				inEscape = false
+			}
+			continue
+		}
+		if r == '\x1b' {
+			inEscape = true
+			continue
+		}
+		count++
+	}
+	return b.String()
+}
+
+// visibleSuffix returns the bytes of s starting after the first n visible characters.
+func visibleSuffix(s string, n int) string {
+	inEscape := false
+	count := 0
+	i := 0
+	runes := []rune(s)
+	for i < len(runes) {
+		if inEscape {
+			if runes[i] == 'm' {
+				inEscape = false
+			}
+			i++
+			continue
+		}
+		if runes[i] == '\x1b' {
+			inEscape = true
+			i++
+			continue
+		}
+		count++
+		i++
+		if count >= n {
+			break
+		}
+	}
+	return string(runes[i:])
 }
