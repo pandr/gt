@@ -13,6 +13,9 @@ func (m Model) View() string {
 	if m.mode == modeHelp {
 		return m.helpView()
 	}
+	if m.mode == modeDiff {
+		return m.diffView()
+	}
 
 	var b strings.Builder
 
