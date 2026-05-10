@@ -17,6 +17,7 @@ var keyBindings = []keyBinding{
 	{"enter", "open — expand dir/commit, diff file or section"},
 	{"d / space", "diff at cursor"},
 	{"v", "view entire file (in diff view: view file at that revision)"},
+	{"H", "file history — commits that touched this file"},
 	{"e", "open file in editor"},
 	{"s", "stage at cursor"},
 	{"u", "unstage at cursor"},

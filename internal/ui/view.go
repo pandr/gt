@@ -19,6 +19,9 @@ func (m Model) View() string {
 	if m.mode == modeFile {
 		return m.fileView()
 	}
+	if m.mode == modeFileLog {
+		return m.fileLogView()
+	}
 
 	var b strings.Builder
 
@@ -489,7 +492,7 @@ func (m Model) contextHints() string {
 				}
 			}
 		case rowCommitFile:
-			hints = []string{"d=diff", "v=view", "h=collapse", "?=help", "q=quit"}
+			hints = []string{"d=diff", "H=history", "v=view", "h=collapse", "?=help", "q=quit"}
 		case rowSectionHeader:
 			switch r.section {
 			case git.SectionUntracked:
@@ -508,11 +511,11 @@ func (m Model) contextHints() string {
 			case git.SectionUntracked:
 				hints = []string{"s=stage", "x=untrack", "X=delete", "t=tag", "c=commit", "?=help", "q=quit"}
 			case git.SectionUnstaged:
-				hints = []string{"d=diff", "s=stage", "r=restore", "x=untrack", "t=tag", "c=commit", "?=help", "q=quit"}
+				hints = []string{"d=diff", "H=history", "s=stage", "r=restore", "x=untrack", "t=tag", "c=commit", "?=help", "q=quit"}
 			case git.SectionStaged:
-				hints = []string{"d=diff", "u=unstage", "c=commit", "t=tag", "?=help", "q=quit"}
+				hints = []string{"d=diff", "H=history", "u=unstage", "c=commit", "t=tag", "?=help", "q=quit"}
 			case git.SectionWorkingTree:
-				hints = []string{"d=diff", "t=tag", "R=refresh", "?=help", "q=quit"}
+				hints = []string{"d=diff", "H=history", "t=tag", "R=refresh", "?=help", "q=quit"}
 			}
 		case rowDir:
 			switch r.section {
@@ -528,6 +531,79 @@ func (m Model) contextHints() string {
 		hints = []string{"c=commit", "d=diff", "s=stage", "u=unstage", "t=tag", "?=help", "q=quit"}
 	}
 	return strings.Join(hints, "  ")
+}
+
+func (m Model) fileLogView() string {
+	rows := m.fileLogRows()
+
+	h := m.height
+	if h < 10 {
+		h = 24
+	}
+	available := h - 2 // title line + hint bar
+
+	start := m.fileLogCursor - available/2
+	if start < 0 {
+		start = 0
+	}
+	end := start + available
+	if end > len(rows) {
+		end = len(rows)
+		start = end - available
+		if start < 0 {
+			start = 0
+		}
+	}
+
+	var b strings.Builder
+	b.WriteString(railFaint.Render("┊") + " " + shaIris.Render("history") + "  " + fgFaint.Render(m.fileLogPath) + "\n")
+
+	for i := start; i < end; i++ {
+		b.WriteString(m.fileLogRenderRow(rows[i], i == m.fileLogCursor) + "\n")
+	}
+
+	rendered := end - start
+	for i := available - rendered; i > 0; i-- {
+		b.WriteString("\n")
+	}
+
+	b.WriteString(styleStatusBar.Render("d=diff(file)  l=expand  h=collapse  v=view  q=back"))
+	return b.String()
+}
+
+// fileLogRenderRow is like renderRow but uses fileLogOpen for the commit expansion indicator.
+func (m Model) fileLogRenderRow(r row, isCursor bool) string {
+	content := m.fileLogRowContent(r)
+	rail := m.railFor(r)
+	line := rail + " " + content
+	if isCursor {
+		return applyCursorBg(line, m.width)
+	}
+	return line
+}
+
+// fileLogRowContent is like rowContent but checks fileLogOpen instead of openCommits.
+func (m Model) fileLogRowContent(r row) string {
+	if r.kind != rowCommit {
+		return m.rowContent(r)
+	}
+	if r.commit == nil {
+		return ""
+	}
+	sha := r.commit.SHA
+	if len(sha) > 7 {
+		sha = sha[:7]
+	}
+	arrow := fgFaint.Render("▶")
+	if _, ok := m.fileLogOpen[r.commit.SHA]; ok {
+		arrow = fgFaint.Render("▼")
+	}
+	age := fgFaint.Render(formatCommitAge(r.commit.Time, time.Now()))
+	refs := ""
+	if len(r.commit.Refs) > 0 {
+		refs = "  " + renderRefs(r.commit.Refs)
+	}
+	return "  " + arrow + " " + shaIris.Render(sha) + " " + age + " " + r.commit.Title + refs
 }
 
 func (m Model) helpView() string {

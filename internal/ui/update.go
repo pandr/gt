@@ -36,6 +36,19 @@ type commitFilesMsg struct {
 	err   error
 }
 
+type fileLogMsg struct {
+	path    string
+	entries []git.LogEntry
+	err     error
+}
+
+type fileLogCommitFilesMsg struct {
+	sha   string
+	files []git.FileEntry
+	body  []string
+	err   error
+}
+
 
 func (m Model) Init() tea.Cmd {
 	return tea.Batch(
@@ -130,6 +143,33 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case fileLogMsg:
+		if msg.err != nil {
+			m.toast = msg.err.Error()
+			return m, nil
+		}
+		m.fileLogPath = msg.path
+		m.fileLogEntries = msg.entries
+		m.fileLogCursor = 0
+		m.fileLogOpen = make(map[string][]git.FileEntry)
+		m.fileLogBodies = make(map[string][]string)
+		m.mode = modeFileLog
+		return m, nil
+
+	case fileLogCommitFilesMsg:
+		if msg.err == nil {
+			m.fileLogOpen[msg.sha] = msg.files
+			m.fileLogBodies[msg.sha] = msg.body
+			rows := m.fileLogRows()
+			for i, r := range rows {
+				if r.kind == rowCommitFile && r.commit != nil && r.commit.SHA == msg.sha && r.dirPath == m.fileLogPath {
+					m.fileLogCursor = i
+					break
+				}
+			}
+		}
+		return m, nil
+
 	case execDoneMsg:
 		// Ignore non-zero exit from diff commands: git diff --no-index exits 1 when
 		// differences are found, and the pager may exit non-zero on user interrupt.
@@ -208,6 +248,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleFileKey(msg)
 	}
 
+	// File history view
+	if m.mode == modeFileLog {
+		return m.handleFileLogKey(msg)
+	}
+
 	// Normal mode
 	switch msg.String() {
 	case "q", "ctrl+c":
@@ -265,6 +310,9 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "v":
 		return m.doViewFile()
+
+	case "H":
+		return m.doFileLog()
 
 	case "e":
 		return m.doEditFile()
@@ -941,7 +989,8 @@ func (m Model) handleDiffKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	switch msg.String() {
 	case "q", "esc":
-		m.mode = modeNormal
+		m.mode = m.prevMode
+		m.prevMode = modeNormal
 		m.diff = nil
 		m.diffFlat = nil
 		m.diffSearch = ""
@@ -1018,6 +1067,155 @@ func (m Model) handleDiffKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "L":
 		if m.diff != nil {
 			return m, m.diffFallbackCmd()
+		}
+	}
+	return m, nil
+}
+
+func (m Model) doFileLog() (Model, tea.Cmd) {
+	r := m.cursorRow()
+	var path string
+	switch r.kind {
+	case rowFile:
+		path = r.file.Path
+	case rowCommitFile:
+		path = r.dirPath
+	default:
+		return m, nil
+	}
+	return m, fetchFileLog(m.repoRoot, path)
+}
+
+func fetchFileLog(repoRoot, path string) tea.Cmd {
+	return func() tea.Msg {
+		entries, err := git.GetFileLog(repoRoot, path)
+		return fileLogMsg{path: path, entries: entries, err: err}
+	}
+}
+
+func fetchFileLogCommitFiles(repoRoot, sha string) tea.Cmd {
+	return func() tea.Msg {
+		files, err := git.GetCommitFiles(repoRoot, sha)
+		if err != nil {
+			return fileLogCommitFilesMsg{sha: sha, err: err}
+		}
+		body, _ := git.GetCommitBody(repoRoot, sha)
+		return fileLogCommitFilesMsg{sha: sha, files: files, body: body}
+	}
+}
+
+func (m Model) handleFileLogKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	rows := m.fileLogRows()
+	clamp := func() {
+		if len(rows) == 0 {
+			m.fileLogCursor = 0
+			return
+		}
+		if m.fileLogCursor < 0 {
+			m.fileLogCursor = 0
+		}
+		if m.fileLogCursor >= len(rows) {
+			m.fileLogCursor = len(rows) - 1
+		}
+	}
+
+	switch msg.String() {
+	case "q", "esc":
+		m.mode = modeNormal
+		m.fileLogEntries = nil
+		m.fileLogPath = ""
+		m.fileLogOpen = make(map[string][]git.FileEntry)
+		m.fileLogBodies = make(map[string][]string)
+
+	case "j", "down":
+		m.fileLogCursor++
+		clamp()
+	case "k", "up":
+		m.fileLogCursor--
+		clamp()
+	case "g":
+		m.fileLogCursor = 0
+	case "G":
+		if len(rows) > 0 {
+			m.fileLogCursor = len(rows) - 1
+		}
+	case " ", "ctrl+d":
+		pageSize := m.height / 2
+		if pageSize < 1 {
+			pageSize = 1
+		}
+		m.fileLogCursor += pageSize
+		clamp()
+	case "ctrl+u":
+		pageSize := m.height / 2
+		if pageSize < 1 {
+			pageSize = 1
+		}
+		m.fileLogCursor -= pageSize
+		clamp()
+
+	case "l", "right", "enter":
+		if m.fileLogCursor >= len(rows) {
+			break
+		}
+		r := rows[m.fileLogCursor]
+		if r.kind == rowCommit && r.commit != nil {
+			if _, ok := m.fileLogOpen[r.commit.SHA]; !ok {
+				return m, fetchFileLogCommitFiles(m.repoRoot, r.commit.SHA)
+			}
+		}
+		if r.kind == rowCommitFile && r.commit != nil {
+			m.prevMode = modeFileLog
+			return m.doInlineCommitDiff(r.commit.SHA, r.dirPath)
+		}
+
+	case "h", "left":
+		if m.fileLogCursor >= len(rows) {
+			break
+		}
+		r := rows[m.fileLogCursor]
+		if r.kind == rowCommit && r.commit != nil {
+			if _, ok := m.fileLogOpen[r.commit.SHA]; ok {
+				delete(m.fileLogOpen, r.commit.SHA)
+				delete(m.fileLogBodies, r.commit.SHA)
+			}
+		} else if (r.kind == rowCommitFile || r.kind == rowCommitBody) && r.commit != nil {
+			delete(m.fileLogOpen, r.commit.SHA)
+			delete(m.fileLogBodies, r.commit.SHA)
+			for i := m.fileLogCursor - 1; i >= 0; i-- {
+				if rows[i].kind == rowCommit && rows[i].commit != nil && rows[i].commit.SHA == r.commit.SHA {
+					m.fileLogCursor = i
+					break
+				}
+			}
+		}
+
+	case "d":
+		if m.fileLogCursor >= len(rows) {
+			break
+		}
+		r := rows[m.fileLogCursor]
+		m.prevMode = modeFileLog
+		if r.kind == rowCommit && r.commit != nil {
+			return m.doInlineCommitDiff(r.commit.SHA, m.fileLogPath)
+		}
+		if r.kind == rowCommitFile && r.commit != nil {
+			return m.doInlineCommitDiff(r.commit.SHA, r.dirPath)
+		}
+		m.prevMode = modeNormal
+
+	case "v":
+		if m.fileLogCursor >= len(rows) {
+			break
+		}
+		r := rows[m.fileLogCursor]
+		if r.kind == rowCommitFile && r.commit != nil {
+			sha7 := r.commit.SHA
+			if len(sha7) > 7 {
+				sha7 = sha7[:7]
+			}
+			m.prevMode = modeFileLog
+			return m, fetchFileAtRevLines(m.repoRoot, r.commit.SHA, r.dirPath, sha7)
 		}
 	}
 	return m, nil

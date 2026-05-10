@@ -27,6 +27,7 @@ const (
 	modeConfirm // waiting for y/n on a destructive action
 	modeDiff    // inline diff view
 	modeFile    // inline file view
+	modeFileLog // file history view
 )
 
 // diffViewLine is an entry in the flat line list used by the inline diff view.
@@ -110,7 +111,9 @@ type Model struct {
 	wtOpen  bool
 	wtFiles []git.FileEntry // all tracked files in the repo (root-relative paths)
 
-	mode        mode
+	mode     mode
+	prevMode mode // mode to restore when exiting diff/file/fileLog
+
 	amendMode   bool
 	commitInput textinput.Model
 
@@ -132,6 +135,13 @@ type Model struct {
 	diffMatches  []int          // flat indices of matching lines
 	diffMatchIdx int            // current position in diffMatches (-1 = unset)
 	diffSearching bool          // true while the search input is open
+
+	// file history view state (modeFileLog)
+	fileLogPath    string
+	fileLogEntries []git.LogEntry
+	fileLogCursor  int
+	fileLogOpen    map[string][]git.FileEntry
+	fileLogBodies  map[string][]string
 
 	// inline file view state (modeFile)
 	fileLines    []string
@@ -168,6 +178,8 @@ func NewModel(repoRoot, cwd, version string) Model {
 		dirContents: make(map[string][]git.FileEntry),
 		openCommits:  make(map[string][]git.FileEntry),
 		commitBodies: make(map[string][]string),
+		fileLogOpen:  make(map[string][]git.FileEntry),
+		fileLogBodies: make(map[string][]string),
 		commitInput: ti,
 	}
 }
@@ -287,6 +299,32 @@ func groupByTopDir(files []git.FileEntry) []wtGroup {
 		result = append(result, *byDir[k])
 	}
 	return result
+}
+
+// fileLogRows builds the flat row list for modeFileLog.
+func (m *Model) fileLogRows() []row {
+	var rows []row
+	for i := range m.fileLogEntries {
+		entry := &m.fileLogEntries[i]
+		rows = append(rows, row{kind: rowCommit, section: git.SectionLog, commit: entry})
+		if files, ok := m.fileLogOpen[entry.SHA]; ok {
+			for _, line := range m.fileLogBodies[entry.SHA] {
+				rows = append(rows, row{kind: rowCommitBody, section: git.SectionLog, commit: entry, dirPath: line})
+			}
+			for _, f := range files {
+				rows = append(rows, row{
+					kind:        rowCommitFile,
+					section:     git.SectionLog,
+					commit:      entry,
+					dirPath:     f.Path,
+					depth:       1,
+					statAdded:   f.Added,
+					statDeleted: f.Deleted,
+				})
+			}
+		}
+	}
+	return rows
 }
 
 // skipSeparators nudges the cursor past any rowSeparator rows in direction d (+1 or -1).

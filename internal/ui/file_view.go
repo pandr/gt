@@ -337,7 +337,8 @@ func (m Model) handleFileKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	n := len(m.fileLines)
 	switch msg.String() {
 	case "q", "esc":
-		m.mode = modeNormal
+		m.mode = m.prevMode
+		m.prevMode = modeNormal
 		m.fileLines = nil
 		m.fileCtx = ""
 		m.filePath = ""

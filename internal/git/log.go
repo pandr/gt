@@ -29,6 +29,19 @@ func GetLog(repoRoot string) ([]LogEntry, error) {
 	return parseLog(string(out)), nil
 }
 
+func GetFileLog(repoRoot, path string) ([]LogEntry, error) {
+	cmd := exec.Command("git", "log", "--follow", "-n", "100", "--format=%h%x09%ct%x09%D%x09%s", "--", path)
+	cmd.Dir = repoRoot
+	out, err := cmd.Output()
+	if err != nil {
+		if strings.Contains(err.Error(), "exit status") {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return parseLog(string(out)), nil
+}
+
 func GetCommitFiles(repoRoot, sha string) ([]FileEntry, error) {
 	cmd := exec.Command("git", "show", "--numstat", "--format=", sha)
 	cmd.Dir = repoRoot
