@@ -337,6 +337,17 @@ func (m *Model) pruneTags() {
 	}
 }
 
+// branchCtx returns the current branch name normalized for pager title bars.
+func (m Model) branchCtx() string {
+	if m.status == nil {
+		return ""
+	}
+	if b := m.status.Branch; b != "" && b != "(detached)" {
+		return b
+	}
+	return "detached"
+}
+
 // statusForPath returns the first staged or unstaged FileEntry for path, or nil.
 func (m Model) statusForPath(path string) *git.FileEntry {
 	if m.status == nil {

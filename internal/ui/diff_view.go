@@ -77,13 +77,7 @@ func (m Model) diffTitleBar() string {
 			fgSoft.Render("diff") + " " +
 			d.Path
 	} else {
-		branch := ""
-		if m.status != nil {
-			branch = m.status.Branch
-			if branch == "(detached)" || branch == "" {
-				branch = "detached"
-			}
-		}
+		branch := m.branchCtx()
 		var sectLabel string
 		switch d.Section {
 		case git.SectionUnstaged:

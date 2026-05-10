@@ -44,14 +44,14 @@ func fetchFileAtRevLines(repoRoot, sha, path, ctx string) tea.Cmd {
 // batCaptureFile runs bat on an on-disk file and returns remapped lines.
 // Falls back to plain os.ReadFile if bat is not available.
 func batCaptureFile(absPath string) ([]string, error) {
-	if _, err := exec.LookPath("bat"); err != nil {
+	if batBin == "" {
 		data, err := os.ReadFile(absPath)
 		if err != nil {
 			return nil, err
 		}
 		return splitLines(string(data)), nil
 	}
-	cmd := exec.Command("bat",
+	cmd := exec.Command(batBin,
 		"--color=always", "--paging=never", "--style=plain", "--theme=ansi", "--tabs=4",
 		absPath)
 	return batRun(cmd)
@@ -60,7 +60,7 @@ func batCaptureFile(absPath string) ([]string, error) {
 // batCaptureCmd pipes gitCmd's stdout through bat and returns remapped lines.
 // Falls back to capturing gitCmd's raw output if bat is not available.
 func batCaptureCmd(gitCmd *exec.Cmd, filename string) ([]string, error) {
-	if _, err := exec.LookPath("bat"); err != nil {
+	if batBin == "" {
 		var buf bytes.Buffer
 		gitCmd.Stdout = &buf
 		if err := gitCmd.Run(); err != nil {
@@ -69,7 +69,7 @@ func batCaptureCmd(gitCmd *exec.Cmd, filename string) ([]string, error) {
 		return splitLines(buf.String()), nil
 	}
 
-	batCmd := exec.Command("bat",
+	batCmd := exec.Command(batBin,
 		"--color=always", "--paging=never", "--style=plain", "--theme=ansi", "--tabs=4",
 		"--file-name="+filename, "-")
 
@@ -102,7 +102,7 @@ func batCaptureCmd(gitCmd *exec.Cmd, filename string) ([]string, error) {
 	}
 	pr.Close()
 
-	return batRun2(out.String()), nil
+	return processLines(out.String()), nil
 }
 
 func batRun(cmd *exec.Cmd) ([]string, error) {
@@ -111,10 +111,10 @@ func batRun(cmd *exec.Cmd) ([]string, error) {
 	if err := cmd.Run(); err != nil {
 		return nil, err
 	}
-	return batRun2(buf.String()), nil
+	return processLines(buf.String()), nil
 }
 
-func batRun2(s string) []string {
+func processLines(s string) []string {
 	lines := splitLines(s)
 	for i, l := range lines {
 		lines[i] = strings.ReplaceAll(remapANSI(l), "\t", "    ")
@@ -146,6 +146,9 @@ var ansiPalette = [16]string{
 	"127;184;196", // 14 br.cyan    → iris        (#7fb8c4)
 	"200;196;180", // 15 br.white   → near-white
 }
+
+// batBin is the resolved path to bat, empty if not installed.
+var batBin, _ = exec.LookPath("bat")
 
 var ansiSeqRe = regexp.MustCompile(`\x1b\[([0-9;]*)m`)
 

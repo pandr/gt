@@ -115,6 +115,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.fileSection = msg.section
 		m.fileLines = msg.lines
 		m.fileCursor = 0
+		m.fileSearch = ""
+		m.fileMatches = nil
+		m.fileMatchIdx = -1
+		m.fileSearching = false
 		m.mode = modeFile
 		return m, nil
 
@@ -569,14 +573,7 @@ func (m Model) doViewFile() (Model, tea.Cmd) {
 	r := m.cursorRow()
 	switch r.kind {
 	case rowFile:
-		ctx := ""
-		if m.status != nil {
-			ctx = m.status.Branch
-			if ctx == "(detached)" || ctx == "" {
-				ctx = "detached"
-			}
-		}
-		return m, fetchFileLines(filepath.Join(m.repoRoot, r.file.Path), ctx, r.file.Path, r.section)
+		return m, fetchFileLines(filepath.Join(m.repoRoot, r.file.Path), m.branchCtx(), r.file.Path, r.section)
 	case rowCommitFile:
 		sha7 := r.commit.SHA
 		if len(sha7) > 7 {
@@ -1011,14 +1008,7 @@ func (m Model) handleDiffKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		if m.diff.SHA == "" {
-			ctx := ""
-			if m.status != nil {
-				ctx = m.status.Branch
-				if ctx == "(detached)" || ctx == "" {
-					ctx = "detached"
-				}
-			}
-			return m, fetchFileLines(filepath.Join(m.repoRoot, m.diff.Path), ctx, m.diff.Path, m.diff.Section)
+			return m, fetchFileLines(filepath.Join(m.repoRoot, m.diff.Path), m.branchCtx(), m.diff.Path, m.diff.Section)
 		}
 		if m.diff.Path == m.diff.SHA {
 			m.toast = "press v on a specific file, not a whole-commit diff"
