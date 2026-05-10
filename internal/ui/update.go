@@ -935,6 +935,9 @@ func refresh(repoRoot string) tea.Cmd {
 }
 
 // handleDiffKey handles keypresses in modeDiff.
+//
+// KEEP IN SYNC: navigation and search here duplicate handleFileKey in file_view.go.
+// If you change one (add keys, fix page size, etc.) update the other, or unify them.
 func (m Model) handleDiffKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.diffSearching {
 		return m.handleDiffSearchKey(msg)

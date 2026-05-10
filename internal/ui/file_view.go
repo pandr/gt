@@ -213,7 +213,11 @@ func (m Model) fileView() string {
 
 	for i := start; i < end; i++ {
 		num := fgFaint.Render(fmt.Sprintf("%*d ", numWidth, i+1))
-		line := num + m.fileLines[i]
+		content := m.fileLines[i]
+		if m.fileSearch != "" {
+			content = injectHighlights(content, m.fileSearch)
+		}
+		line := num + content
 		if i == m.fileCursor {
 			line = applyCursorBg(line, m.width)
 		} else if m.width > 0 {
@@ -240,8 +244,15 @@ func (m Model) fileView() string {
 	b.WriteString(fgFaint.Render(strings.Repeat("─", sepWidth)))
 	b.WriteString("\n")
 
-	hints := "j/k=line  space/ctrl+d/u=page  g/G=top/bottom  q=back"
-	b.WriteString(styleStatusBar.Render(hints))
+	if m.fileSearching {
+		b.WriteString(styleStatusBar.Render("/") + " " + m.commitInput.View())
+	} else {
+		hints := "j/k=line  space/ctrl+d/u=page  g/G=top/bottom  /=search  e=editor  q=back"
+		if m.fileSearch != "" {
+			hints = "n/N=match  " + hints
+		}
+		b.WriteString(styleStatusBar.Render(hints))
+	}
 
 	return b.String()
 }
@@ -312,7 +323,14 @@ func (m Model) fileVisibleRange(available int) (int, int) {
 
 // ── key handling ─────────────────────────────────────────────────────────────
 
+// handleFileKey handles keypresses in modeFile.
+//
+// KEEP IN SYNC: navigation and search here duplicate handleDiffKey in update.go.
+// If you change one (add keys, fix page size, etc.) update the other, or unify them.
 func (m Model) handleFileKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.fileSearching {
+		return m.handleFileSearchKey(msg)
+	}
 	n := len(m.fileLines)
 	switch msg.String() {
 	case "q", "esc":
@@ -321,6 +339,9 @@ func (m Model) handleFileKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.fileCtx = ""
 		m.filePath = ""
 		m.fileCursor = 0
+		m.fileSearch = ""
+		m.fileMatches = nil
+		m.fileMatchIdx = -1
 	case "j", "down":
 		if m.fileCursor < n-1 {
 			m.fileCursor++
@@ -353,6 +374,155 @@ func (m Model) handleFileKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if n > 0 {
 			m.fileCursor = n - 1
 		}
+	case "e":
+		if m.filePath != "" {
+			return m, execEditFile(filepath.Join(m.repoRoot, m.filePath))
+		}
+	case "/":
+		m.fileSearching = true
+		m.commitInput.Reset()
+		m.commitInput.Placeholder = "search…"
+		m.commitInput.Focus()
+		return m, nil
+	case "n":
+		if len(m.fileMatches) > 0 {
+			m.fileMatchIdx = (m.fileMatchIdx + 1) % len(m.fileMatches)
+			m.fileCursor = m.fileMatches[m.fileMatchIdx]
+		}
+	case "N":
+		if len(m.fileMatches) > 0 {
+			m.fileMatchIdx = (m.fileMatchIdx - 1 + len(m.fileMatches)) % len(m.fileMatches)
+			m.fileCursor = m.fileMatches[m.fileMatchIdx]
+		}
 	}
 	return m, nil
+}
+
+func (m Model) handleFileSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "enter":
+		pattern := m.commitInput.Value()
+		m.fileSearch = pattern
+		m.fileSearching = false
+		m.commitInput.Blur()
+		m.commitInput.Reset()
+		m.fileMatches = m.computeFileMatches(pattern)
+		m.fileMatchIdx = -1
+		if len(m.fileMatches) > 0 {
+			m.fileMatchIdx = 0
+			for i, idx := range m.fileMatches {
+				if idx >= m.fileCursor {
+					m.fileMatchIdx = i
+					break
+				}
+			}
+			m.fileCursor = m.fileMatches[m.fileMatchIdx]
+		}
+		return m, nil
+	case "esc":
+		m.fileSearch = ""
+		m.fileSearching = false
+		m.commitInput.Blur()
+		m.commitInput.Reset()
+		m.fileMatches = nil
+		m.fileMatchIdx = -1
+		return m, nil
+	}
+	var cmd tea.Cmd
+	m.commitInput, cmd = m.commitInput.Update(msg)
+	return m, cmd
+}
+
+func (m Model) computeFileMatches(pattern string) []int {
+	if pattern == "" {
+		return nil
+	}
+	lower := strings.ToLower(pattern)
+	var matches []int
+	for i, line := range m.fileLines {
+		if strings.Contains(strings.ToLower(stripANSI(line)), lower) {
+			matches = append(matches, i)
+		}
+	}
+	return matches
+}
+
+// injectHighlights wraps every occurrence of pattern in line with search
+// highlight codes. line may contain ANSI sequences; matching uses visible text.
+func injectHighlights(line, pattern string) string {
+	if pattern == "" {
+		return line
+	}
+	raw := []rune(strings.ToLower(stripANSI(line)))
+	pat := []rune(strings.ToLower(pattern))
+	if len(raw) < len(pat) {
+		return line
+	}
+
+	type rng struct{ start, end int }
+	var ranges []rng
+	for i := 0; i <= len(raw)-len(pat); {
+		j := 0
+		for j < len(pat) && raw[i+j] == pat[j] {
+			j++
+		}
+		if j == len(pat) {
+			ranges = append(ranges, rng{i, i + len(pat)})
+			i += len(pat)
+		} else {
+			i++
+		}
+	}
+	if len(ranges) == 0 {
+		return line
+	}
+
+	// amber bg (#d6a96a) + near-black fg (#14141a) — matches searchHlStyle in theme.go
+	const hlOpen  = "\x1b[48;2;214;169;106m\x1b[38;2;20;20;26m"
+	const hlClose = "\x1b[0m"
+
+	var out strings.Builder
+	vis := 0
+	ri := 0
+	inHL := false
+	esc := false
+
+	for _, r := range line {
+		if esc {
+			out.WriteRune(r)
+			if r == 'm' {
+				esc = false
+				if inHL {
+					out.WriteString(hlOpen) // re-apply after any ANSI reset
+				}
+			}
+			continue
+		}
+		if r == '\x1b' {
+			esc = true
+			out.WriteRune(r)
+			continue
+		}
+		if ri < len(ranges) {
+			if vis == ranges[ri].start && !inHL {
+				out.WriteString(hlOpen)
+				inHL = true
+			}
+			if vis == ranges[ri].end && inHL {
+				out.WriteString(hlClose)
+				inHL = false
+				ri++
+				if ri < len(ranges) && vis == ranges[ri].start {
+					out.WriteString(hlOpen)
+					inHL = true
+				}
+			}
+		}
+		out.WriteRune(r)
+		vis++
+	}
+	if inHL {
+		out.WriteString(hlClose)
+	}
+	return out.String()
 }
