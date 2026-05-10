@@ -52,7 +52,7 @@ func (m Model) diffView() string {
 	if m.diffSearching {
 		b.WriteString(styleStatusBar.Render("/") + " " + m.commitInput.View())
 	} else {
-		hints := "j/k=line  space/ctrl+d/u=page  ]/[=hunk  /=search  e=editor  L=less  q=back"
+		hints := "j/k=line  space/ctrl+d/u=page  ]/[=hunk  /=search  v=view  e=editor  L=less  q=back"
 		if m.diffSearch != "" {
 			hints = "n/N=match  " + hints
 		}

@@ -79,6 +79,41 @@ func execViewFile(absPath string) tea.Cmd {
 	})
 }
 
+// execViewFileContent pipes gitCmd's stdout through bat (or less) as raw file content.
+// filename is used by bat for syntax highlighting only.
+func execViewFileContent(gitCmd *exec.Cmd, filename string) tea.Cmd {
+	var viewCmd *exec.Cmd
+	if _, err := exec.LookPath("bat"); err == nil {
+		viewCmd = exec.Command("bat", "--color=always", "--paging=always", "--file-name="+filename, "-")
+	} else {
+		viewCmd = exec.Command("less", "-R")
+	}
+
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		return tea.ExecProcess(gitCmd, func(err error) tea.Msg {
+			return execDoneMsg{err: err}
+		})
+	}
+	gitCmd.Stdout = pw
+	gitCmd.Stderr = pw
+	viewCmd.Stdin = pr
+
+	if err := gitCmd.Start(); err != nil {
+		pw.Close()
+		pr.Close()
+		return func() tea.Msg { return execDoneMsg{err: err} }
+	}
+	go func() {
+		gitCmd.Wait()
+		pw.Close()
+	}()
+	return tea.ExecProcess(viewCmd, func(err error) tea.Msg {
+		pr.Close()
+		return execDoneMsg{err: err}
+	})
+}
+
 // execShell suspends the TUI, runs cmd in the user's shell, waits for Enter, then returns shellDoneMsg.
 func execShell(cmd string) tea.Cmd {
 	display := strings.ReplaceAll(cmd, "'", `'\''`)

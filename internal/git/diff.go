@@ -57,3 +57,10 @@ func ShowFileCmd(repoRoot, sha, path string) *exec.Cmd {
 	cmd.Dir = repoRoot
 	return cmd
 }
+
+// ShowFileAtRevCmd returns an exec.Cmd for `git show SHA:path`, raw file content.
+func ShowFileAtRevCmd(repoRoot, sha, path string) *exec.Cmd {
+	cmd := exec.Command("git", "show", sha+":"+path)
+	cmd.Dir = repoRoot
+	return cmd
+}

@@ -549,10 +549,13 @@ func (m Model) doInlineWTFile(path string) (tea.Model, tea.Cmd) {
 
 func (m Model) doViewFile() (Model, tea.Cmd) {
 	r := m.cursorRow()
-	if r.kind != rowFile {
-		return m, nil
+	switch r.kind {
+	case rowFile:
+		return m, execViewFile(filepath.Join(m.repoRoot, r.file.Path))
+	case rowCommitFile:
+		return m, execViewFileContent(git.ShowFileAtRevCmd(m.repoRoot, r.commit.SHA, r.dirPath), filepath.Base(r.dirPath))
 	}
-	return m, execViewFile(filepath.Join(m.repoRoot, r.file.Path))
+	return m, nil
 }
 
 func (m Model) doEditFile() (Model, tea.Cmd) {
@@ -739,7 +742,7 @@ func (m Model) doExpand() (Model, tea.Cmd) {
 			if !m.wtOpen {
 				m.wtOpen = true
 				if len(m.wtFiles) == 0 {
-					return m, fetchWTFiles(m.cwd)
+					return m, fetchWTFiles(m.repoRoot)
 				}
 				m.buildRows()
 			}
@@ -971,6 +974,18 @@ func (m Model) handleDiffKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.diff != nil {
 			return m, execEditFile(filepath.Join(m.repoRoot, m.diff.Path))
 		}
+	case "v":
+		if m.diff == nil {
+			return m, nil
+		}
+		if m.diff.SHA == "" {
+			return m, execViewFile(filepath.Join(m.repoRoot, m.diff.Path))
+		}
+		if m.diff.Path == m.diff.SHA {
+			m.toast = "press v on a specific file, not a whole-commit diff"
+			return m, nil
+		}
+		return m, execViewFileContent(git.ShowFileAtRevCmd(m.repoRoot, m.diff.SHA, m.diff.Path), filepath.Base(m.diff.Path))
 	case "L":
 		if m.diff != nil {
 			return m, m.diffFallbackCmd()

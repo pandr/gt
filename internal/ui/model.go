@@ -107,7 +107,7 @@ type Model struct {
 
 	// working tree section
 	wtOpen  bool
-	wtFiles []git.FileEntry // all tracked files under cwd
+	wtFiles []git.FileEntry // all tracked files in the repo (root-relative paths)
 
 	mode        mode
 	amendMode   bool

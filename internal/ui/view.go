@@ -486,7 +486,7 @@ func (m Model) contextHints() string {
 				}
 			}
 		case rowCommitFile:
-			hints = []string{"d=diff", "h=collapse", "?=help", "q=quit"}
+			hints = []string{"d=diff", "v=view", "h=collapse", "?=help", "q=quit"}
 		case rowSectionHeader:
 			switch r.section {
 			case git.SectionUntracked:
