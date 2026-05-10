@@ -16,6 +16,9 @@ func (m Model) View() string {
 	if m.mode == modeDiff {
 		return m.diffView()
 	}
+	if m.mode == modeFile {
+		return m.fileView()
+	}
 
 	var b strings.Builder
 

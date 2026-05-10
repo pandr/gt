@@ -16,7 +16,7 @@ var keyBindings = []keyBinding{
 	{"h / ←", "collapse directory / section"},
 	{"enter", "open — expand dir/commit, diff file or section"},
 	{"d / space", "diff at cursor"},
-	{"v", "view file in pager (in diff view: view entire file at that revision)"},
+	{"v", "view entire file (in diff view: view file at that revision)"},
 	{"e", "open file in editor"},
 	{"s", "stage at cursor"},
 	{"u", "unstage at cursor"},

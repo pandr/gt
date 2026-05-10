@@ -26,6 +26,7 @@ const (
 	modeHelp
 	modeConfirm // waiting for y/n on a destructive action
 	modeDiff    // inline diff view
+	modeFile    // inline file view
 )
 
 // diffViewLine is an entry in the flat line list used by the inline diff view.
@@ -131,6 +132,13 @@ type Model struct {
 	diffMatches  []int          // flat indices of matching lines
 	diffMatchIdx int            // current position in diffMatches (-1 = unset)
 	diffSearching bool          // true while the search input is open
+
+	// inline file view state (modeFile)
+	fileLines   []string
+	fileCursor  int
+	fileCtx     string      // branch name or sha7
+	filePath    string      // repo-relative path
+	fileSection git.Section // for the "(unstaged)" label; ignored for commit views
 
 	width  int
 	height int

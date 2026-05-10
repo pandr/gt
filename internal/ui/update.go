@@ -105,6 +105,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case fileViewMsg:
+		if msg.err != nil {
+			m.toast = msg.err.Error()
+			return m, nil
+		}
+		m.fileCtx = msg.ctx
+		m.filePath = msg.path
+		m.fileSection = msg.section
+		m.fileLines = msg.lines
+		m.fileCursor = 0
+		m.mode = modeFile
+		return m, nil
+
 	case commitFilesMsg:
 		if msg.err == nil {
 			m.openCommits[msg.sha] = msg.files
@@ -184,6 +197,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Inline diff view
 	if m.mode == modeDiff {
 		return m.handleDiffKey(msg)
+	}
+
+	// Inline file view
+	if m.mode == modeFile {
+		return m.handleFileKey(msg)
 	}
 
 	// Normal mode
@@ -551,9 +569,20 @@ func (m Model) doViewFile() (Model, tea.Cmd) {
 	r := m.cursorRow()
 	switch r.kind {
 	case rowFile:
-		return m, execViewFile(filepath.Join(m.repoRoot, r.file.Path))
+		ctx := ""
+		if m.status != nil {
+			ctx = m.status.Branch
+			if ctx == "(detached)" || ctx == "" {
+				ctx = "detached"
+			}
+		}
+		return m, fetchFileLines(filepath.Join(m.repoRoot, r.file.Path), ctx, r.file.Path, r.section)
 	case rowCommitFile:
-		return m, execViewFileContent(git.ShowFileAtRevCmd(m.repoRoot, r.commit.SHA, r.dirPath), filepath.Base(r.dirPath))
+		sha7 := r.commit.SHA
+		if len(sha7) > 7 {
+			sha7 = sha7[:7]
+		}
+		return m, fetchFileAtRevLines(m.repoRoot, r.commit.SHA, r.dirPath, sha7)
 	}
 	return m, nil
 }
@@ -979,13 +1008,20 @@ func (m Model) handleDiffKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		if m.diff.SHA == "" {
-			return m, execViewFile(filepath.Join(m.repoRoot, m.diff.Path))
+			ctx := ""
+			if m.status != nil {
+				ctx = m.status.Branch
+				if ctx == "(detached)" || ctx == "" {
+					ctx = "detached"
+				}
+			}
+			return m, fetchFileLines(filepath.Join(m.repoRoot, m.diff.Path), ctx, m.diff.Path, m.diff.Section)
 		}
 		if m.diff.Path == m.diff.SHA {
 			m.toast = "press v on a specific file, not a whole-commit diff"
 			return m, nil
 		}
-		return m, execViewFileContent(git.ShowFileAtRevCmd(m.repoRoot, m.diff.SHA, m.diff.Path), filepath.Base(m.diff.Path))
+		return m, fetchFileAtRevLines(m.repoRoot, m.diff.SHA, m.diff.Path, m.diff.SHA)
 	case "L":
 		if m.diff != nil {
 			return m, m.diffFallbackCmd()
